@@ -1,65 +1,162 @@
-import Image from "next/image";
+import Link from 'next/link'
+import SiteHeader from '@/components/site-header'
+import SiteFooter from '@/components/site-footer'
 
-export default function Home() {
+export default function HomePage() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+    <>
+      <SiteHeader />
+
+      <main className="bg-white text-slate-900">
+        <section className="border-b border-slate-200 bg-gradient-to-b from-blue-50 via-white to-white">
+          <div className="mx-auto grid max-w-6xl gap-12 px-6 py-20 md:grid-cols-2 md:items-center">
+            <div>
+              <p className="inline-flex rounded-full border border-blue-200 bg-blue-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+                Online Teaching Platform
+              </p>
+
+              <h1 className="mt-6 text-4xl font-bold leading-tight text-slate-900 md:text-6xl">
+                Learn with confidence at{' '}
+                <span className="text-blue-600">Torres Academy</span>
+              </h1>
+
+              <p className="mt-6 max-w-xl text-lg leading-8 text-slate-700">
+                Simple lessons, practical learning, and short online courses designed
+                to help students make real progress.
+              </p>
+
+              <div className="mt-8 flex flex-wrap gap-4">
+                <Link
+                  href="/free-training"
+                  className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-blue-700"
+                >
+                  Join Free Training
+                </Link>
+
+                <Link
+                  href="/services"
+                  className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                >
+                  View Services
+                </Link>
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-blue-100 bg-white p-8 shadow-[0_20px_60px_-30px_rgba(37,99,235,0.35)]">
+              <h2 className="text-2xl font-bold text-slate-900">What you will find here</h2>
+
+              <ul className="mt-6 space-y-4 text-slate-700">
+                <li className="rounded-xl bg-slate-50 px-4 py-3">
+                  Short, clear online lessons
+                </li>
+                <li className="rounded-xl bg-slate-50 px-4 py-3">
+                  Free training to help you get started
+                </li>
+                <li className="rounded-xl bg-slate-50 px-4 py-3">
+                  Student login and personal learning dashboard
+                </li>
+                <li className="rounded-xl bg-slate-50 px-4 py-3">
+                  Guided support for steady progress
+                </li>
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div className="mx-auto max-w-6xl px-6 py-16">
+            <div className="grid gap-6 md:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mb-4 h-10 w-10 rounded-xl bg-blue-100" />
+                <h3 className="text-xl font-bold text-slate-900">Clear Teaching</h3>
+                <p className="mt-3 text-slate-700">
+                  Lessons are structured in a simple way so students can understand
+                  and apply what they learn.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mb-4 h-10 w-10 rounded-xl bg-blue-100" />
+                <h3 className="text-xl font-bold text-slate-900">Practical Learning</h3>
+                <p className="mt-3 text-slate-700">
+                  Focus on useful knowledge, guided practice, and small wins that
+                  build confidence.
+                </p>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mb-4 h-10 w-10 rounded-xl bg-blue-100" />
+                <h3 className="text-xl font-bold text-slate-900">Student Progress</h3>
+                <p className="mt-3 text-slate-700">
+                  Students can log in, follow lessons, and track what they complete
+                  inside the platform.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="border-y border-slate-200 bg-slate-50">
+          <div className="mx-auto max-w-6xl px-6 py-16">
+            <div className="max-w-3xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+                Start Here
+              </p>
+
+              <h2 className="mt-3 text-3xl font-bold text-slate-900">
+                Begin with a free short course
+              </h2>
+
+              <p className="mt-4 text-lg text-slate-700">
+                New students can start with a free training experience, explore the
+                teaching style, and begin learning step by step.
+              </p>
+
+              <div className="mt-6">
+                <Link
+                  href="/free-training"
+                  className="inline-block rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+                >
+                  Explore Free Training
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <div className="mx-auto max-w-6xl px-6 py-16">
+            <div className="rounded-3xl border border-blue-100 bg-gradient-to-r from-slate-900 to-blue-900 p-8 text-white shadow-[0_20px_60px_-30px_rgba(15,23,42,0.55)] md:p-10">
+              <h2 className="text-3xl font-bold">
+                Ready to learn with Torres Academy?
+              </h2>
+
+              <p className="mt-4 max-w-2xl text-slate-200">
+                Create your account, access free training, and continue learning
+                inside your student dashboard.
+              </p>
+
+              <div className="mt-6 flex flex-wrap gap-4">
+                <Link
+                  href="/login"
+                  className="rounded-xl bg-white px-5 py-3 font-semibold text-slate-900 transition hover:bg-slate-100"
+                >
+                  Student Login
+                </Link>
+
+                <Link
+                  href="/dashboard"
+                  className="rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+                >
+                  Go to Dashboard
+                </Link>
+              </div>
+            </div>
+          </div>
+        </section>
       </main>
-    </div>
-  );
+
+      <SiteFooter />
+    </>
+  )
 }
