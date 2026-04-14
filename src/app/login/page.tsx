@@ -15,6 +15,8 @@ export default function LoginPage() {
 
     const supabase = createClient()
 
+    await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
