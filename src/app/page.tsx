@@ -1,6 +1,13 @@
 import Link from 'next/link'
+import {
+  BookOpen,
+  CircleCheckBig,
+  Laptop,
+  Sparkles,
+} from 'lucide-react'
 import SiteHeader from '@/components/site-header'
 import SiteFooter from '@/components/site-footer'
+import HeroIllustration from '@/components/hero-illustration'
 
 export default function HomePage() {
   return (
@@ -42,24 +49,7 @@ export default function HomePage() {
               </div>
             </div>
 
-            <div className="rounded-3xl border border-blue-100 bg-white p-8 shadow-[0_20px_60px_-30px_rgba(37,99,235,0.35)]">
-              <h2 className="text-2xl font-bold text-slate-900">What you will find here</h2>
-
-              <ul className="mt-6 space-y-4 text-slate-700">
-                <li className="rounded-xl bg-slate-50 px-4 py-3">
-                  Short, clear online lessons
-                </li>
-                <li className="rounded-xl bg-slate-50 px-4 py-3">
-                  Free training to help you get started
-                </li>
-                <li className="rounded-xl bg-slate-50 px-4 py-3">
-                  Student login and personal learning dashboard
-                </li>
-                <li className="rounded-xl bg-slate-50 px-4 py-3">
-                  Guided support for steady progress
-                </li>
-              </ul>
-            </div>
+            <HeroIllustration />
           </div>
         </section>
 
@@ -67,7 +57,9 @@ export default function HomePage() {
           <div className="mx-auto max-w-6xl px-6 py-16">
             <div className="grid gap-6 md:grid-cols-3">
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="mb-4 h-10 w-10 rounded-xl bg-blue-100" />
+                <div className="mb-4 inline-flex rounded-2xl bg-blue-100 p-3 text-blue-700">
+                  <Sparkles className="h-6 w-6" />
+                </div>
                 <h3 className="text-xl font-bold text-slate-900">Clear Teaching</h3>
                 <p className="mt-3 text-slate-700">
                   Lessons are structured in a simple way so students can understand
@@ -76,7 +68,9 @@ export default function HomePage() {
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="mb-4 h-10 w-10 rounded-xl bg-blue-100" />
+                <div className="mb-4 inline-flex rounded-2xl bg-blue-100 p-3 text-blue-700">
+                  <BookOpen className="h-6 w-6" />
+                </div>
                 <h3 className="text-xl font-bold text-slate-900">Practical Learning</h3>
                 <p className="mt-3 text-slate-700">
                   Focus on useful knowledge, guided practice, and small wins that
@@ -85,7 +79,9 @@ export default function HomePage() {
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div className="mb-4 h-10 w-10 rounded-xl bg-blue-100" />
+                <div className="mb-4 inline-flex rounded-2xl bg-blue-100 p-3 text-blue-700">
+                  <CircleCheckBig className="h-6 w-6" />
+                </div>
                 <h3 className="text-xl font-bold text-slate-900">Student Progress</h3>
                 <p className="mt-3 text-slate-700">
                   Students can log in, follow lessons, and track what they complete
@@ -112,13 +108,18 @@ export default function HomePage() {
                 teaching style, and begin learning step by step.
               </p>
 
-              <div className="mt-6">
+              <div className="mt-6 flex flex-wrap gap-4">
                 <Link
                   href="/free-training"
                   className="inline-block rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
                 >
                   Explore Free Training
                 </Link>
+
+                <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-700">
+                  <Laptop className="h-4 w-4 text-blue-600" />
+                  Student dashboard included
+                </div>
               </div>
             </div>
           </div>
