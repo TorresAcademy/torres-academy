@@ -1,15 +1,18 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/lib/supabase/client'
 import Link from 'next/link'
-
+import { useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
 type Mode = 'signin' | 'signup'
 
 export default function LoginPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const nextParam = searchParams.get('next')
+  const next = nextParam && nextParam.startsWith('/') ? nextParam : null
+
   const supabase = createClient()
 
   const [mode, setMode] = useState<Mode>('signin')
@@ -21,27 +24,73 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [magicLoading, setMagicLoading] = useState(false)
 
-  async function upsertProfile(userId: string, name?: string) {
-    const payload: {
+  async function ensureProfile(userId: string, name?: string) {
+    const normalizedEmail = email.trim().toLowerCase()
+
+    const { data: existingProfile } = await supabase
+      .from('profiles')
+      .select('id, role')
+      .eq('id', userId)
+      .maybeSingle()
+
+    if (existingProfile) {
+      const updatePayload: {
+        email: string
+        full_name?: string
+      } = {
+        email: normalizedEmail,
+      }
+
+      if (name && name.trim()) {
+        updatePayload.full_name = name.trim()
+      }
+
+      const { error } = await supabase
+        .from('profiles')
+        .update(updatePayload)
+        .eq('id', userId)
+
+      if (error) throw error
+      return existingProfile.role
+    }
+
+    const insertPayload: {
       id: string
       role: string
+      email: string
       full_name?: string
     } = {
       id: userId,
       role: 'student',
+      email: normalizedEmail,
     }
 
     if (name && name.trim()) {
-      payload.full_name = name.trim()
+      insertPayload.full_name = name.trim()
     }
 
-    const { error } = await supabase
+    const { error } = await supabase.from('profiles').insert(insertPayload)
+
+    if (error) throw error
+
+    return 'student'
+  }
+
+  async function getTargetPath(userId: string) {
+    if (next) return next
+
+    const { data: profile, error } = await supabase
       .from('profiles')
-      .upsert(payload, { onConflict: 'id' })
+      .select('role')
+      .eq('id', userId)
+      .maybeSingle()
 
     if (error) {
-      throw error
+      console.error(error)
+      return '/dashboard'
     }
+
+    return profile?.role === 'admin' ? '/admin' : '/dashboard'
   }
 
   async function handleSignIn(e: React.FormEvent) {
@@ -63,14 +112,16 @@ export default function LoginPage() {
 
     if (data.user) {
       try {
-        await upsertProfile(data.user.id)
+        await ensureProfile(data.user.id)
       } catch (profileError) {
         console.error(profileError)
       }
+
+      const targetPath = await getTargetPath(data.user.id)
+      router.push(targetPath)
+      router.refresh()
     }
 
-    router.push('/dashboard')
-    router.refresh()
     setLoading(false)
   }
 
@@ -80,11 +131,13 @@ export default function LoginPage() {
     setMessage('')
     setErrorMessage('')
 
+    const redirectTarget = next || '/dashboard'
+
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard`,
+        emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(redirectTarget)}`,
         data: {
           full_name: fullName,
         },
@@ -99,12 +152,13 @@ export default function LoginPage() {
 
     if (data.session && data.user) {
       try {
-        await upsertProfile(data.user.id, fullName)
+        await ensureProfile(data.user.id, fullName)
       } catch (profileError) {
         console.error(profileError)
       }
 
-      router.push('/dashboard')
+      const targetPath = await getTargetPath(data.user.id)
+      router.push(targetPath)
       router.refresh()
       setLoading(false)
       return
@@ -119,12 +173,14 @@ export default function LoginPage() {
     setMessage('')
     setErrorMessage('')
 
+    const redirectTarget = next || '/dashboard'
+
     await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/confirm?next=/dashboard`,
+        emailRedirectTo: `${window.location.origin}/auth/confirm?next=${encodeURIComponent(redirectTarget)}`,
       },
     })
 
@@ -236,7 +292,10 @@ export default function LoginPage() {
           </div>
 
           <div className="text-right">
-            <Link href="/forgot-password" className="text-sm font-medium text-blue-600 underline">
+            <Link
+              href="/forgot-password"
+              className="text-sm font-medium text-blue-600 underline"
+            >
               Forgot password?
             </Link>
           </div>
