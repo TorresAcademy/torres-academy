@@ -165,7 +165,14 @@ export default async function DashboardPage() {
             </h1>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/profile"
+              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+            >
+              My Profile
+            </Link>
+
             {isAdmin && (
               <Link
                 href="/admin"
@@ -174,6 +181,7 @@ export default async function DashboardPage() {
                 Admin Panel
               </Link>
             )}
+
             <LogoutButton />
           </div>
         </div>
@@ -209,6 +217,13 @@ export default async function DashboardPage() {
                   Explore courses
                 </Link>
               )}
+
+              <Link
+                href="/profile"
+                className="rounded-xl border border-white/25 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+              >
+                Edit profile
+              </Link>
             </div>
           </div>
 
