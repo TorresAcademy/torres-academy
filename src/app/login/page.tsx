@@ -3,6 +3,8 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import Link from 'next/link'
+
 
 type Mode = 'signin' | 'signup'
 
@@ -231,6 +233,12 @@ export default function LoginPage() {
               placeholder="Enter your password"
               className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
             />
+          </div>
+
+          <div className="text-right">
+            <Link href="/forgot-password" className="text-sm font-medium text-blue-600 underline">
+              Forgot password?
+            </Link>
           </div>
 
           <button
