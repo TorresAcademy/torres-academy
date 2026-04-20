@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import LogoutButton from '@/components/logout-button'
 import EnrollButton from '@/components/enroll-button'
+import UserAvatar from '@/components/user-avatar'
 
 type Course = {
   id: number
@@ -48,7 +49,7 @@ export default async function DashboardPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, email, role')
+    .select('full_name, email, role, avatar_url')
     .eq('id', user.id)
     .maybeSingle()
 
@@ -74,7 +75,10 @@ export default async function DashboardPage() {
     (enrollmentsData ?? []).map((row) => row.course_id as number)
   )
 
-  const myCourses = allCourses.filter((course) => enrolledCourseIds.has(course.id))
+  const myCourses = allCourses.filter((course) =>
+    enrolledCourseIds.has(course.id)
+  )
+
   const availableCourses = allCourses.filter(
     (course) => !enrolledCourseIds.has(course.id)
   )
@@ -122,6 +126,7 @@ export default async function DashboardPage() {
     ).length
 
     const totalLessons = courseLessons.length
+
     const progress =
       totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
 
@@ -150,8 +155,11 @@ export default async function DashboardPage() {
 
   const totalLessons = lessons.length
   const totalCompletedLessons = Array.from(completedLessonIds).length
+
   const overallProgress =
-    totalLessons > 0 ? Math.round((totalCompletedLessons / totalLessons) * 100) : 0
+    totalLessons > 0
+      ? Math.round((totalCompletedLessons / totalLessons) * 100)
+      : 0
 
   const displayName =
     profile?.full_name ||
@@ -162,14 +170,23 @@ export default async function DashboardPage() {
     <main className="min-h-screen bg-slate-50 text-slate-900">
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
-          <div>
-            <p className="text-sm font-medium text-slate-500">
-              Student Dashboard
-            </p>
-            <h1 className="text-2xl font-bold">
-              Welcome back,{' '}
-              <span className="text-blue-600">{displayName}</span>
-            </h1>
+          <div className="flex items-center gap-4">
+            <UserAvatar
+              src={profile?.avatar_url}
+              name={profile?.full_name}
+              email={profile?.email || user.email}
+              size="md"
+            />
+
+            <div>
+              <p className="text-sm font-medium text-slate-500">
+                Student Dashboard
+              </p>
+              <h1 className="text-2xl font-bold">
+                Welcome back,{' '}
+                <span className="text-blue-600">{displayName}</span>
+              </h1>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -377,9 +394,7 @@ export default async function DashboardPage() {
 
           {availableCourses.length === 0 ? (
             <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-slate-700">
-                No available courses right now.
-              </p>
+              <p className="text-slate-700">No available courses right now.</p>
             </div>
           ) : (
             <div className="mt-6 grid gap-6 md:grid-cols-2">

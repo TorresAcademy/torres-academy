@@ -1,6 +1,6 @@
-// src/app/teacher/layout.tsx
 import Link from 'next/link'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
+import UserAvatar from '@/components/user-avatar'
 
 export default async function TeacherLayout({
   children,
@@ -20,13 +20,22 @@ export default async function TeacherLayout({
             </h1>
           </div>
 
-          <div className="text-right">
-            <p className="text-sm font-medium text-slate-900">
-              {profile.full_name || profile.email || 'Teacher'}
-            </p>
-            <p className="text-xs uppercase tracking-[0.16em] text-blue-700">
-              {profile.role}
-            </p>
+          <div className="flex items-center gap-3 text-right">
+            <div>
+              <p className="text-sm font-medium text-slate-900">
+                {profile.full_name || profile.email || 'Teacher'}
+              </p>
+              <p className="text-xs uppercase tracking-[0.16em] text-blue-700">
+                {profile.role}
+              </p>
+            </div>
+
+            <UserAvatar
+              src={profile.avatar_url}
+              name={profile.full_name}
+              email={profile.email}
+              size="sm"
+            />
           </div>
         </div>
       </header>
@@ -40,24 +49,28 @@ export default async function TeacherLayout({
             >
               Overview
             </Link>
+
             <Link
               href="/teacher/courses"
               className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
             >
               My Courses
             </Link>
+
             <Link
               href="/teacher/lessons"
               className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
             >
               My Lessons
             </Link>
+
             <Link
               href="/teacher/students"
               className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
             >
               My Students
             </Link>
+
             <Link
               href="/dashboard"
               className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"

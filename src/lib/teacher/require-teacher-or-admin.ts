@@ -14,7 +14,7 @@ export async function requireTeacherOrAdmin() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, full_name, email, role')
+    .select('id, full_name, email, role, avatar_url')
     .eq('id', user.id)
     .maybeSingle()
 

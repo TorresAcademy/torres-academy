@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { requireAdmin } from '@/lib/admin/require-admin'
+import UserAvatar from '@/components/user-avatar'
 
 export default async function AdminLayout({
   children,
@@ -19,13 +20,22 @@ export default async function AdminLayout({
             </h1>
           </div>
 
-          <div className="text-right">
-            <p className="text-sm font-medium text-slate-900">
-              {profile.full_name || profile.email || 'Admin'}
-            </p>
-            <p className="text-xs uppercase tracking-[0.16em] text-blue-700">
-              {profile.role}
-            </p>
+          <div className="flex items-center gap-3 text-right">
+            <div>
+              <p className="text-sm font-medium text-slate-900">
+                {profile.full_name || profile.email || 'Admin'}
+              </p>
+              <p className="text-xs uppercase tracking-[0.16em] text-blue-700">
+                {profile.role}
+              </p>
+            </div>
+
+            <UserAvatar
+              src={profile.avatar_url}
+              name={profile.full_name}
+              email={profile.email}
+              size="sm"
+            />
           </div>
         </div>
       </header>
