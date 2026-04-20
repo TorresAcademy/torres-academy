@@ -1,9 +1,17 @@
 import { notFound } from 'next/navigation'
 import LessonForm from '@/components/admin/lesson-form'
+import LessonResourcesManager from '@/components/admin/lesson-resources-manager'
 import { requireAdmin } from '@/lib/admin/require-admin'
 
 type EditLessonPageProps = {
   params: Promise<{ id: string }>
+}
+
+type Resource = {
+  id: number
+  title: string
+  resource_type: string
+  file_url: string
 }
 
 export default async function EditLessonPage({
@@ -35,11 +43,19 @@ export default async function EditLessonPage({
     .select('id, title')
     .order('title', { ascending: true })
 
+  const { data: resourcesData } = await supabase
+    .from('resources')
+    .select('id, title, resource_type, file_url')
+    .eq('lesson_id', lessonId)
+    .order('created_at', { ascending: false })
+
   const courses =
     (coursesData ?? []).map((course) => ({
       id: course.id,
       title: course.title,
     })) || []
+
+  const resources = (resourcesData ?? []) as Resource[]
 
   return (
     <div className="space-y-6">
@@ -51,7 +67,7 @@ export default async function EditLessonPage({
           Edit lesson
         </h2>
         <p className="mt-2 text-slate-600">
-          Update lesson content, order, and publishing status.
+          Update lesson content, order, publishing status, and lesson resources.
         </p>
       </div>
 
@@ -68,6 +84,11 @@ export default async function EditLessonPage({
           position: lesson.position ?? 1,
           is_published: lesson.is_published ?? false,
         }}
+      />
+
+      <LessonResourcesManager
+        lessonId={lesson.id}
+        initialResources={resources}
       />
     </div>
   )

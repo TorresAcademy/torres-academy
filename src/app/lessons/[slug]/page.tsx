@@ -32,6 +32,13 @@ type NextLesson = {
   title: string
 }
 
+type Resource = {
+  id: number
+  title: string
+  resource_type: string
+  file_url: string
+}
+
 export default async function LessonPage({ params }: LessonPageProps) {
   const { slug } = await params
   const supabase = await createClient()
@@ -98,7 +105,14 @@ export default async function LessonPage({ params }: LessonPageProps) {
     .order('position', { ascending: true })
     .limit(1)
 
+  const { data: resourcesData } = await supabase
+    .from('resources')
+    .select('id, title, resource_type, file_url')
+    .eq('lesson_id', typedLesson.id)
+    .order('created_at', { ascending: false })
+
   const nextLesson = (nextLessons?.[0] ?? null) as NextLesson | null
+  const resources = (resourcesData ?? []) as Resource[]
 
   return (
     <main className="min-h-screen bg-slate-50 p-6">
@@ -139,6 +153,39 @@ export default async function LessonPage({ params }: LessonPageProps) {
             initialCompleted={typedProgress?.completed ?? false}
           />
         </article>
+
+        <section className="mt-8 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+          <h2 className="text-2xl font-bold text-slate-900">Resources</h2>
+
+          {resources.length === 0 ? (
+            <p className="mt-4 text-slate-600">No resources added yet.</p>
+          ) : (
+            <div className="mt-4 space-y-4">
+              {resources.map((resource) => (
+                <div
+                  key={resource.id}
+                  className="rounded-2xl border border-slate-200 p-4"
+                >
+                  <div className="flex flex-wrap items-center gap-3">
+                    <h3 className="font-semibold text-slate-900">{resource.title}</h3>
+                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                      {resource.resource_type}
+                    </span>
+                  </div>
+
+                  <a
+                    href={resource.file_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="mt-3 inline-block font-medium text-blue-600 underline break-all"
+                  >
+                    Open resource
+                  </a>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
 
         {nextLesson && (
           <div className="mt-6">
