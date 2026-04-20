@@ -53,6 +53,8 @@ export default async function DashboardPage() {
     .maybeSingle()
 
   const isAdmin = profile?.role === 'admin'
+  const isTeacher = profile?.role === 'teacher'
+  const canAccessTeacherHub = isTeacher || isAdmin
 
   const { data: allCoursesData } = await supabase
     .from('courses')
@@ -80,6 +82,7 @@ export default async function DashboardPage() {
   const myCourseIds = myCourses.map((course) => course.id)
 
   let lessons: Lesson[] = []
+
   if (myCourseIds.length > 0) {
     const { data: lessonsData } = await supabase
       .from('lessons')
@@ -94,6 +97,7 @@ export default async function DashboardPage() {
   const lessonIds = lessons.map((lesson) => lesson.id)
 
   let progressRows: Progress[] = []
+
   if (lessonIds.length > 0) {
     const { data: progressData } = await supabase
       .from('lesson_progress')
@@ -159,9 +163,12 @@ export default async function DashboardPage() {
       <section className="border-b border-slate-200 bg-white">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <div>
-            <p className="text-sm font-medium text-slate-500">Student Dashboard</p>
+            <p className="text-sm font-medium text-slate-500">
+              Student Dashboard
+            </p>
             <h1 className="text-2xl font-bold">
-              Welcome back, <span className="text-blue-600">{displayName}</span>
+              Welcome back,{' '}
+              <span className="text-blue-600">{displayName}</span>
             </h1>
           </div>
 
@@ -173,10 +180,19 @@ export default async function DashboardPage() {
               My Profile
             </Link>
 
+            {canAccessTeacherHub && (
+              <Link
+                href="/teacher"
+                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
+              >
+                Teacher Hub
+              </Link>
+            )}
+
             {isAdmin && (
               <Link
                 href="/admin"
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
               >
                 Admin Panel
               </Link>
@@ -193,12 +209,14 @@ export default async function DashboardPage() {
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-200">
               Torres Academy
             </p>
+
             <h2 className="mt-3 text-3xl font-bold">
               Your learning space is ready.
             </h2>
+
             <p className="mt-4 max-w-2xl text-slate-200">
-              Enroll in free courses, continue your lessons, and track your progress
-              in one place.
+              Enroll in free courses, continue your lessons, and track your
+              progress in one place.
             </p>
 
             <div className="mt-6 flex flex-wrap gap-4">
@@ -224,6 +242,15 @@ export default async function DashboardPage() {
               >
                 Edit profile
               </Link>
+
+              {canAccessTeacherHub && (
+                <Link
+                  href="/teacher"
+                  className="rounded-xl border border-white/25 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+                >
+                  Go to Teacher Hub
+                </Link>
+              )}
             </div>
           </div>
 
@@ -265,7 +292,9 @@ export default async function DashboardPage() {
         <div className="mx-auto max-w-6xl px-6 py-10">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">My Courses</h2>
-            <p className="text-sm text-slate-600">Courses you already enrolled in</p>
+            <p className="text-sm text-slate-600">
+              Courses you already enrolled in
+            </p>
           </div>
 
           {myCourseCards.length === 0 ? (
@@ -283,7 +312,9 @@ export default async function DashboardPage() {
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div>
-                      <h3 className="text-xl font-bold text-slate-900">{course.title}</h3>
+                      <h3 className="text-xl font-bold text-slate-900">
+                        {course.title}
+                      </h3>
                       <p className="mt-2 text-slate-700">
                         {course.description || 'No description yet.'}
                       </p>
@@ -297,7 +328,8 @@ export default async function DashboardPage() {
                   <div className="mt-5">
                     <div className="flex items-center justify-between text-sm text-slate-600">
                       <span>
-                        {course.completedLessons} of {course.totalLessons} lessons completed
+                        {course.completedLessons} of {course.totalLessons}{' '}
+                        lessons completed
                       </span>
                       <span>{course.progress}%</span>
                     </div>
@@ -338,7 +370,9 @@ export default async function DashboardPage() {
         <div className="mx-auto max-w-6xl px-6">
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold">Available Courses</h2>
-            <p className="text-sm text-slate-600">Free published courses students can join</p>
+            <p className="text-sm text-slate-600">
+              Free published courses students can join
+            </p>
           </div>
 
           {availableCourses.length === 0 ? (
@@ -354,7 +388,10 @@ export default async function DashboardPage() {
                   key={course.id}
                   className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
                 >
-                  <h3 className="text-xl font-bold text-slate-900">{course.title}</h3>
+                  <h3 className="text-xl font-bold text-slate-900">
+                    {course.title}
+                  </h3>
+
                   <p className="mt-2 text-slate-700">
                     {course.description || 'No description yet.'}
                   </p>
