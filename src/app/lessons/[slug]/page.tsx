@@ -9,6 +9,33 @@ type LessonPageProps = {
   }>
 }
 
+type Quiz = {
+  id: number
+  title: string
+  quiz_type: string
+  pass_percentage: number
+  position: number
+  questions: {
+    id: number
+    question: string
+    position: number
+    options: {
+      id: number
+      option_text: string
+      position: number
+    }[]
+  }[]
+}
+
+type QuizAttempt = {
+  quiz_id: number
+  score_percentage: number
+  correct_count: number
+  total_questions: number
+  passed: boolean
+  created_at: string
+}
+
 export default async function LessonPage({ params }: LessonPageProps) {
   const { slug } = await params
   const supabase = await createClient()
@@ -153,6 +180,40 @@ export default async function LessonPage({ params }: LessonPageProps) {
     .eq('lesson_id', lesson.id)
     .maybeSingle()
 
+  const { data: quizzesData } = await supabase.rpc(
+    'get_lesson_quizzes_for_student',
+    {
+      input_lesson_id: lesson.id,
+    }
+  )
+
+  const quizzes = Array.isArray(quizzesData) ? (quizzesData as Quiz[]) : []
+  const quizIds = quizzes.map((quiz) => quiz.id)
+
+  let quizAttempts: QuizAttempt[] = []
+
+  if (quizIds.length > 0) {
+    const { data: attemptsData } = await supabase
+      .from('quiz_attempts')
+      .select(
+        'quiz_id, score_percentage, correct_count, total_questions, passed, created_at'
+      )
+      .eq('user_id', user.id)
+      .in('quiz_id', quizIds)
+      .order('created_at', { ascending: false })
+
+    quizAttempts = (attemptsData ?? []) as QuizAttempt[]
+  }
+
+  const finalQuizzes = quizzes.filter((quiz) => quiz.quiz_type === 'final')
+  const passedQuizIds = new Set(
+    quizAttempts.filter((attempt) => attempt.passed).map((attempt) => attempt.quiz_id)
+  )
+
+  const finalQuizPassed =
+    finalQuizzes.length === 0 ||
+    finalQuizzes.every((quiz) => passedQuizIds.has(quiz.id))
+
   async function completeAction() {
     'use server'
 
@@ -164,6 +225,36 @@ export default async function LessonPage({ params }: LessonPageProps) {
 
     if (!user) {
       redirect(`/login?next=/lessons/${slug}`)
+    }
+
+    const { data: finalQuizzesData } = await supabase
+      .from('quizzes')
+      .select('id')
+      .eq('lesson_id', lesson.id)
+      .eq('quiz_type', 'final')
+      .eq('is_published', true)
+
+    const finalQuizIds = (finalQuizzesData ?? []).map((quiz) => quiz.id)
+
+    if (finalQuizIds.length > 0) {
+      const { data: passedAttempts } = await supabase
+        .from('quiz_attempts')
+        .select('quiz_id')
+        .eq('user_id', user.id)
+        .in('quiz_id', finalQuizIds)
+        .eq('passed', true)
+
+      const passedIds = new Set(
+        (passedAttempts ?? []).map((attempt) => attempt.quiz_id)
+      )
+
+      const passedEveryFinalQuiz = finalQuizIds.every((quizId) =>
+        passedIds.has(quizId)
+      )
+
+      if (!passedEveryFinalQuiz) {
+        redirect(`/lessons/${slug}`)
+      }
     }
 
     await supabase.from('lesson_progress').upsert(
@@ -217,6 +308,9 @@ export default async function LessonPage({ params }: LessonPageProps) {
           ? String(reflectionData.confidence_level)
           : '',
       }}
+      quizzes={quizzes}
+      quizAttempts={quizAttempts}
+      finalQuizPassed={finalQuizPassed}
       completeAction={completeAction}
     />
   )
