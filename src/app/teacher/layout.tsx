@@ -51,6 +51,13 @@ export default async function TeacherLayout({
             </Link>
 
             <Link
+              href="/teacher/analytics"
+              className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+            >
+              Analytics
+            </Link>
+
+            <Link
               href="/teacher/courses"
               className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
             >
