@@ -74,7 +74,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
 
   const { data: course } = await supabase
     .from('courses')
-    .select('id, title, slug, is_published')
+    .select('id, title, slug, is_published, is_free')
     .eq('id', lesson.course_id)
     .maybeSingle()
 
@@ -95,7 +95,19 @@ export default async function LessonPage({ params }: LessonPageProps) {
       .maybeSingle()
 
     if (!enrollment) {
-      redirect(`/courses/${course.slug}`)
+      if (course.is_published && course.is_free) {
+        const { error: enrollError } = await supabase.from('enrollments').insert({
+          user_id: user.id,
+          course_id: course.id,
+        })
+
+        if (enrollError) {
+          console.error(enrollError)
+          redirect(`/courses/${course.slug}`)
+        }
+      } else {
+        redirect(`/courses/${course.slug}`)
+      }
     }
   }
 
@@ -180,6 +192,15 @@ export default async function LessonPage({ params }: LessonPageProps) {
     .eq('lesson_id', lesson.id)
     .maybeSingle()
 
+  const { data: feedbackRequestData } = await supabase
+    .from('feedback_requests')
+    .select(
+      'id, status, student_message, teacher_feedback, created_at, reviewed_at'
+    )
+    .eq('user_id', user.id)
+    .eq('lesson_id', lesson.id)
+    .maybeSingle()
+
   const { data: quizzesData } = await supabase.rpc(
     'get_lesson_quizzes_for_student',
     {
@@ -207,7 +228,9 @@ export default async function LessonPage({ params }: LessonPageProps) {
 
   const finalQuizzes = quizzes.filter((quiz) => quiz.quiz_type === 'final')
   const passedQuizIds = new Set(
-    quizAttempts.filter((attempt) => attempt.passed).map((attempt) => attempt.quiz_id)
+    quizAttempts
+      .filter((attempt) => attempt.passed)
+      .map((attempt) => attempt.quiz_id)
   )
 
   const finalQuizPassed =
@@ -308,6 +331,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
           ? String(reflectionData.confidence_level)
           : '',
       }}
+      initialFeedbackRequest={feedbackRequestData ?? null}
       quizzes={quizzes}
       quizAttempts={quizAttempts}
       finalQuizPassed={finalQuizPassed}
