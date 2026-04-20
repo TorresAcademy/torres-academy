@@ -1,4 +1,3 @@
-// src/app/teacher/lessons/page.tsx
 import Link from 'next/link'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 
@@ -36,6 +35,7 @@ export default async function TeacherLessonsPage() {
   const courseIds = courses.map((course) => course.id)
 
   let lessons: Lesson[] = []
+
   if (courseIds.length > 0) {
     const { data: lessonsData } = await supabase
       .from('lessons')
@@ -58,7 +58,7 @@ export default async function TeacherLessonsPage() {
             My lessons
           </h2>
           <p className="mt-2 text-slate-600">
-            Create and manage the lessons inside your courses.
+            Create lessons and build quizzes for your courses.
           </p>
         </div>
 
@@ -86,9 +86,11 @@ export default async function TeacherLessonsPage() {
                   <p className="text-sm font-medium text-blue-700">
                     {courseMap.get(lesson.course_id) || 'Unknown course'}
                   </p>
+
                   <h3 className="mt-1 text-xl font-bold text-slate-900">
                     {lesson.title}
                   </h3>
+
                   <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600">
                     <span>Slug: {lesson.slug}</span>
                     <span>Position: {lesson.position}</span>
@@ -112,6 +114,13 @@ export default async function TeacherLessonsPage() {
                   className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700"
                 >
                   Edit
+                </Link>
+
+                <Link
+                  href={`/teacher/lessons/${lesson.id}/quiz`}
+                  className="rounded-xl bg-purple-600 px-4 py-2 font-semibold text-white transition hover:bg-purple-700"
+                >
+                  Quiz Builder
                 </Link>
 
                 <Link

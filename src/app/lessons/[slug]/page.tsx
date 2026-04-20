@@ -237,6 +237,10 @@ export default async function LessonPage({ params }: LessonPageProps) {
     finalQuizzes.length === 0 ||
     finalQuizzes.every((quiz) => passedQuizIds.has(quiz.id))
 
+  const lessonId = lesson.id
+  const courseSlug = course.slug
+  const nextLessonSlug = nextLesson?.slug ?? null
+
   async function completeAction() {
     'use server'
 
@@ -253,7 +257,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
     const { data: finalQuizzesData } = await supabase
       .from('quizzes')
       .select('id')
-      .eq('lesson_id', lesson.id)
+      .eq('lesson_id', lessonId)
       .eq('quiz_type', 'final')
       .eq('is_published', true)
 
@@ -283,7 +287,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
     await supabase.from('lesson_progress').upsert(
       {
         user_id: user.id,
-        lesson_id: lesson.id,
+        lesson_id: lessonId,
         completed: true,
       },
       {
@@ -292,14 +296,14 @@ export default async function LessonPage({ params }: LessonPageProps) {
     )
 
     revalidatePath(`/lessons/${slug}`)
-    revalidatePath(`/courses/${course.slug}`)
+    revalidatePath(`/courses/${courseSlug}`)
     revalidatePath('/dashboard')
 
-    if (nextLesson) {
-      redirect(`/lessons/${nextLesson.slug}`)
+    if (nextLessonSlug) {
+      redirect(`/lessons/${nextLessonSlug}`)
     }
 
-    redirect(`/courses/${course.slug}`)
+    redirect(`/courses/${courseSlug}`)
   }
 
   return (

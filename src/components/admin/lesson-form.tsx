@@ -1,52 +1,291 @@
+'use client'
+
 import Link from 'next/link'
-import LessonForm from '@/components/admin/lesson-form'
-import { requireAdmin } from '@/lib/admin/require-admin'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 
-export default async function NewLessonPage() {
-  const { supabase } = await requireAdmin()
+type CourseOption = {
+  id: number
+  title: string
+}
 
-  const { data: coursesData } = await supabase
-    .from('courses')
-    .select('id, title')
-    .order('title', { ascending: true })
+type LessonFormProps = {
+  mode: 'create' | 'edit'
+  lessonId?: number
+  courses: CourseOption[]
+  initialValues?: {
+    course_id: number
+    title: string
+    slug: string
+    content: string
+    video_url: string | null
+    position: number
+    is_published: boolean
+  }
+}
 
-  const courses =
-    (coursesData ?? []).map((course) => ({
-      id: course.id,
-      title: course.title,
-    })) || []
+function slugify(value: string) {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+}
+
+export default function LessonForm({
+  mode,
+  lessonId,
+  courses,
+  initialValues,
+}: LessonFormProps) {
+  const router = useRouter()
+  const supabase = createClient()
+
+  const [courseId, setCourseId] = useState(
+    initialValues?.course_id ? String(initialValues.course_id) : ''
+  )
+  const [title, setTitle] = useState(initialValues?.title ?? '')
+  const [slug, setSlug] = useState(initialValues?.slug ?? '')
+  const [content, setContent] = useState(initialValues?.content ?? '')
+  const [videoUrl, setVideoUrl] = useState(initialValues?.video_url ?? '')
+  const [position, setPosition] = useState(initialValues?.position ?? 1)
+  const [isPublished, setIsPublished] = useState(
+    initialValues?.is_published ?? false
+  )
+
+  const [slugTouched, setSlugTouched] = useState(Boolean(initialValues?.slug))
+  const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
+  useEffect(() => {
+    if (!slugTouched) {
+      setSlug(slugify(title))
+    }
+  }, [title, slugTouched])
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+
+    setLoading(true)
+    setErrorMessage('')
+
+    const cleanTitle = title.trim()
+    const cleanSlug = slugify(slug)
+    const selectedCourseId = Number(courseId)
+
+    if (!selectedCourseId || Number.isNaN(selectedCourseId)) {
+      setErrorMessage('Please choose a course.')
+      setLoading(false)
+      return
+    }
+
+    if (!cleanTitle) {
+      setErrorMessage('Lesson title is required.')
+      setLoading(false)
+      return
+    }
+
+    if (!cleanSlug) {
+      setErrorMessage('Lesson slug is required.')
+      setLoading(false)
+      return
+    }
+
+    const payload = {
+      course_id: selectedCourseId,
+      title: cleanTitle,
+      slug: cleanSlug,
+      content: content.trim(),
+      video_url: videoUrl.trim() || null,
+      position: Number(position) || 1,
+      is_published: isPublished,
+    }
+
+    if (mode === 'create') {
+      const { error } = await supabase.from('lessons').insert(payload)
+
+      if (error) {
+        setErrorMessage(error.message)
+        setLoading(false)
+        return
+      }
+    }
+
+    if (mode === 'edit') {
+      if (!lessonId) {
+        setErrorMessage('Missing lesson ID.')
+        setLoading(false)
+        return
+      }
+
+      const { error } = await supabase
+        .from('lessons')
+        .update(payload)
+        .eq('id', lessonId)
+
+      if (error) {
+        setErrorMessage(error.message)
+        setLoading(false)
+        return
+      }
+    }
+
+    router.push('/admin/lessons')
+    router.refresh()
+  }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-          Lessons
-        </p>
-        <h2 className="mt-2 text-3xl font-bold text-slate-900">
-          Create lesson
-        </h2>
-        <p className="mt-2 text-slate-600">
-          Add a new lesson to one of your courses.
-        </p>
+    <form
+      onSubmit={handleSubmit}
+      className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"
+    >
+      <div className="space-y-5">
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Course
+          </label>
+
+          <select
+            value={courseId}
+            onChange={(e) => setCourseId(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+          >
+            <option value="">Choose a course</option>
+
+            {courses.map((course) => (
+              <option key={course.id} value={course.id}>
+                {course.title}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Lesson title
+          </label>
+
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Lesson 1: Introduce Yourself"
+            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Slug
+          </label>
+
+          <input
+            type="text"
+            value={slug}
+            onChange={(e) => {
+              setSlugTouched(true)
+              setSlug(e.target.value)
+            }}
+            placeholder="introduce-yourself"
+            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+          />
+
+          <p className="mt-2 text-xs text-slate-500">
+            Used in the URL, for example: /lessons/introduce-yourself
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Lesson content
+          </label>
+
+          <textarea
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Write the lesson content here..."
+            rows={10}
+            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+          />
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Video URL
+          </label>
+
+          <input
+            type="url"
+            value={videoUrl}
+            onChange={(e) => setVideoUrl(e.target.value)}
+            placeholder="https://..."
+            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+          />
+
+          <p className="mt-2 text-xs text-slate-500">
+            Optional. Protected media uploads are handled separately.
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Position
+          </label>
+
+          <input
+            type="number"
+            min="1"
+            value={position}
+            onChange={(e) => setPosition(Number(e.target.value))}
+            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+          />
+        </div>
+
+        <label className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4">
+          <input
+            type="checkbox"
+            checked={isPublished}
+            onChange={(e) => setIsPublished(e.target.checked)}
+            className="h-4 w-4"
+          />
+
+          <div>
+            <p className="font-medium text-slate-900">Published</p>
+            <p className="text-sm text-slate-500">
+              Students can only access published lessons.
+            </p>
+          </div>
+        </label>
       </div>
 
-      {courses.length === 0 ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-          <p className="text-slate-700">
-            You need at least one course before creating lessons.
-          </p>
-          <div className="mt-4">
-            <Link
-              href="/admin/courses/new"
-              className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
-            >
-              Create course first
-            </Link>
-          </div>
-        </div>
-      ) : (
-        <LessonForm mode="create" courses={courses} />
+      {errorMessage && (
+        <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+          {errorMessage}
+        </p>
       )}
-    </div>
+
+      <div className="mt-8 flex flex-wrap gap-3">
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+        >
+          {loading
+            ? 'Saving...'
+            : mode === 'create'
+              ? 'Create lesson'
+              : 'Save changes'}
+        </button>
+
+        <Link
+          href="/admin/lessons"
+          className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+        >
+          Cancel
+        </Link>
+      </div>
+    </form>
   )
 }

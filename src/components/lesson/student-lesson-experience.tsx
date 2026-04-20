@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import LessonQuizCard from '@/components/lesson/lesson-quiz-card'
+import FeedbackRequestCard from '@/components/lesson/feedback-request-card'
 
 type LessonNavigationItem = {
   id: number
@@ -18,6 +20,46 @@ type ReflectionState = {
   difficult: string
   nextStep: string
   confidence: string
+}
+
+type QuizOption = {
+  id: number
+  option_text: string
+  position: number
+}
+
+type QuizQuestion = {
+  id: number
+  question: string
+  position: number
+  options: QuizOption[]
+}
+
+type Quiz = {
+  id: number
+  title: string
+  quiz_type: string
+  pass_percentage: number
+  position: number
+  questions: QuizQuestion[]
+}
+
+type QuizAttempt = {
+  quiz_id: number
+  score_percentage: number
+  correct_count: number
+  total_questions: number
+  passed: boolean
+  created_at: string
+}
+
+type FeedbackRequest = {
+  id: number
+  status: string
+  student_message: string
+  teacher_feedback: string | null
+  created_at: string | null
+  reviewed_at: string | null
 }
 
 type StudentLessonExperienceProps = {
@@ -47,6 +89,10 @@ type StudentLessonExperienceProps = {
   initialNote: string
   initialReaction: string
   initialReflection: ReflectionState
+  initialFeedbackRequest: FeedbackRequest | null
+  quizzes: Quiz[]
+  quizAttempts: QuizAttempt[]
+  finalQuizPassed: boolean
   completeAction: () => Promise<void>
 }
 
@@ -70,13 +116,18 @@ export default function StudentLessonExperience({
   initialNote,
   initialReaction,
   initialReflection,
+  initialFeedbackRequest,
+  quizzes,
+  quizAttempts,
+  finalQuizPassed,
   completeAction,
 }: StudentLessonExperienceProps) {
   const supabase = createClient()
 
   const [notes, setNotes] = useState(initialNote)
   const [reaction, setReaction] = useState(initialReaction)
-  const [reflection, setReflection] = useState<ReflectionState>(initialReflection)
+  const [reflection, setReflection] =
+    useState<ReflectionState>(initialReflection)
 
   const [notesSaving, setNotesSaving] = useState(false)
   const [reflectionSaving, setReflectionSaving] = useState(false)
@@ -96,6 +147,24 @@ export default function StudentLessonExperience({
   const totalLessons = lessons.length
   const progressPercentage =
     totalLessons > 0 ? Math.round((completedCount / totalLessons) * 100) : 0
+
+  const middleQuizzes = quizzes.filter((quiz) => quiz.quiz_type === 'middle')
+  const finalQuizzes = quizzes.filter((quiz) => quiz.quiz_type === 'final')
+  const hasFinalQuiz = finalQuizzes.length > 0
+
+  function getBestAttempt(quizId: number) {
+    const attempts = quizAttempts.filter((attempt) => attempt.quiz_id === quizId)
+
+    if (attempts.length === 0) return null
+
+    return attempts.sort((a, b) => {
+      if (Number(b.passed) !== Number(a.passed)) {
+        return Number(b.passed) - Number(a.passed)
+      }
+
+      return b.score_percentage - a.score_percentage
+    })[0]
+  }
 
   async function saveNotes() {
     setNotesSaving(true)
@@ -122,7 +191,6 @@ export default function StudentLessonExperience({
 
     setNotesMessage('Notes saved')
     setNotesSaving(false)
-
     setTimeout(() => setNotesMessage(''), 1800)
   }
 
@@ -152,7 +220,6 @@ export default function StudentLessonExperience({
     setReaction(value)
     setReactionMessage('Reaction saved')
     setReactionSaving(false)
-
     setTimeout(() => setReactionMessage(''), 1800)
   }
 
@@ -188,7 +255,6 @@ export default function StudentLessonExperience({
 
     setReflectionMessage('Reflection saved')
     setReflectionSaving(false)
-
     setTimeout(() => setReflectionMessage(''), 1800)
   }
 
@@ -284,7 +350,7 @@ export default function StudentLessonExperience({
                         {item.completed ? '✓' : item.position}
                       </div>
 
-                      <div className="min-w-0">
+                      <div>
                         <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
                           Lesson {item.position}
                         </p>
@@ -401,13 +467,29 @@ export default function StudentLessonExperience({
                 </div>
               </div>
 
-              <div className="mt-6 rounded-2xl border border-dashed border-blue-200 bg-blue-50 p-5">
+              <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
                 <h3 className="text-lg font-bold text-slate-900">
-                  Mid-lesson quiz area
+                  Mid-lesson quizzes
                 </h3>
-                <p className="mt-2 text-sm text-slate-700">
-                  This is where your mid-lesson quiz will appear in the quiz phase.
+                <p className="mt-2 text-sm text-slate-600">
+                  Check your understanding before continuing.
                 </p>
+
+                {middleQuizzes.length === 0 ? (
+                  <p className="mt-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+                    No mid-lesson quiz added yet.
+                  </p>
+                ) : (
+                  <div className="mt-5 space-y-5">
+                    {middleQuizzes.map((quiz) => (
+                      <LessonQuizCard
+                        key={quiz.id}
+                        quiz={quiz}
+                        bestAttempt={getBestAttempt(quiz.id)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
@@ -447,82 +529,62 @@ export default function StudentLessonExperience({
                 </div>
 
                 <div className="mt-4 grid gap-4">
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
-                      What did you learn in this lesson?
-                    </label>
-                    <textarea
-                      value={reflection.learned}
-                      onChange={(e) =>
-                        setReflection((prev) => ({
-                          ...prev,
-                          learned: e.target.value,
-                        }))
-                      }
-                      rows={4}
-                      className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-                      placeholder="Write your summary here..."
-                    />
-                  </div>
+                  <textarea
+                    value={reflection.learned}
+                    onChange={(e) =>
+                      setReflection((prev) => ({
+                        ...prev,
+                        learned: e.target.value,
+                      }))
+                    }
+                    rows={4}
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                    placeholder="What did you learn?"
+                  />
 
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
-                      What was difficult or unclear?
-                    </label>
-                    <textarea
-                      value={reflection.difficult}
-                      onChange={(e) =>
-                        setReflection((prev) => ({
-                          ...prev,
-                          difficult: e.target.value,
-                        }))
-                      }
-                      rows={4}
-                      className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-                      placeholder="What challenged you?"
-                    />
-                  </div>
+                  <textarea
+                    value={reflection.difficult}
+                    onChange={(e) =>
+                      setReflection((prev) => ({
+                        ...prev,
+                        difficult: e.target.value,
+                      }))
+                    }
+                    rows={4}
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                    placeholder="What was difficult or unclear?"
+                  />
 
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
-                      What will you do next?
-                    </label>
-                    <textarea
-                      value={reflection.nextStep}
-                      onChange={(e) =>
-                        setReflection((prev) => ({
-                          ...prev,
-                          nextStep: e.target.value,
-                        }))
-                      }
-                      rows={3}
-                      className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-                      placeholder="Review, practice, ask for help..."
-                    />
-                  </div>
+                  <textarea
+                    value={reflection.nextStep}
+                    onChange={(e) =>
+                      setReflection((prev) => ({
+                        ...prev,
+                        nextStep: e.target.value,
+                      }))
+                    }
+                    rows={3}
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                    placeholder="What will you do next?"
+                  />
 
-                  <div>
-                    <label className="mb-2 block text-sm font-medium text-slate-700">
-                      How confident do you feel now?
-                    </label>
-                    <select
-                      value={reflection.confidence}
-                      onChange={(e) =>
-                        setReflection((prev) => ({
-                          ...prev,
-                          confidence: e.target.value,
-                        }))
-                      }
-                      className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-                    >
-                      <option value="">Select confidence</option>
-                      <option value="1">1 - I need a lot more help</option>
-                      <option value="2">2 - I still feel unsure</option>
-                      <option value="3">3 - I understand some of it</option>
-                      <option value="4">4 - I feel confident</option>
-                      <option value="5">5 - I can explain it clearly</option>
-                    </select>
-                  </div>
+                  <select
+                    value={reflection.confidence}
+                    onChange={(e) =>
+                      setReflection((prev) => ({
+                        ...prev,
+                        confidence: e.target.value,
+                      }))
+                    }
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                  >
+                    <option value="">Select confidence</option>
+                    <option value="1">1 - I need a lot more help</option>
+                    <option value="2">2 - I still feel unsure</option>
+                    <option value="3">3 - I understand some of it</option>
+                    <option value="4">4 - I feel confident</option>
+                    <option value="5">5 - I can explain it clearly</option>
+                  </select>
 
                   <button
                     type="button"
@@ -530,19 +592,38 @@ export default function StudentLessonExperience({
                     disabled={reflectionSaving}
                     className="w-fit rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
                   >
-                    {reflectionSaving ? 'Saving reflection...' : 'Save reflection'}
+                    {reflectionSaving
+                      ? 'Saving reflection...'
+                      : 'Save reflection'}
                   </button>
                 </div>
               </div>
 
               <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
                 <h3 className="text-lg font-bold text-slate-900">
-                  End-of-lesson quiz area
+                  Final lesson quiz
                 </h3>
-                <p className="mt-2 text-sm text-slate-700">
-                  This is where the final quiz will go. The next phase can add
-                  teacher-created questions and a 90% passing rule.
+
+                <p className="mt-2 text-sm text-slate-600">
+                  You must pass the final quiz before completing this lesson.
                 </p>
+
+                {finalQuizzes.length === 0 ? (
+                  <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-700">
+                    No final quiz has been published yet. You can still mark the
+                    lesson complete for now.
+                  </p>
+                ) : (
+                  <div className="mt-5 space-y-5">
+                    {finalQuizzes.map((quiz) => (
+                      <LessonQuizCard
+                        key={quiz.id}
+                        quiz={quiz}
+                        bestAttempt={getBestAttempt(quiz.id)}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
@@ -563,13 +644,22 @@ export default function StudentLessonExperience({
                   )}
                 </div>
 
+                {hasFinalQuiz && !finalQuizPassed && (
+                  <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+                    Pass the final quiz first. Required score is usually 90%.
+                  </p>
+                )}
+
                 <div className="mt-5 flex flex-wrap gap-3">
                   <form action={completeAction}>
                     <button
                       type="submit"
-                      className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+                      disabled={hasFinalQuiz && !finalQuizPassed}
+                      className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
                     >
-                      {isCompleted ? 'Save and continue' : 'Mark lesson complete'}
+                      {isCompleted
+                        ? 'Save and continue'
+                        : 'Mark lesson complete'}
                     </button>
                   </form>
 
@@ -637,37 +727,11 @@ export default function StudentLessonExperience({
                 </button>
               </div>
 
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
-                  Resources
-                </p>
-                <h2 className="mt-2 text-xl font-bold text-slate-900">
-                  Lesson resources
-                </h2>
-                <p className="mt-3 text-sm leading-7 text-slate-700">
-                  No additional resources added yet.
-                </p>
-              </div>
-
-              <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
-                  Human feedback
-                </p>
-                <h2 className="mt-2 text-xl font-bold text-slate-900">
-                  Request teacher review
-                </h2>
-                <p className="mt-3 text-sm leading-7 text-slate-700">
-                  This area is ready for a future feature where students can ask
-                  a teacher for feedback.
-                </p>
-
-                <button
-                  type="button"
-                  className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 opacity-70"
-                >
-                  Request feedback coming soon
-                </button>
-              </div>
+              <FeedbackRequestCard
+                userId={userId}
+                lessonId={lesson.id}
+                initialRequest={initialFeedbackRequest}
+              />
             </div>
           </aside>
         </div>
