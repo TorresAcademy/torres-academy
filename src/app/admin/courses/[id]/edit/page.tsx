@@ -1,4 +1,3 @@
-// src/app/admin/courses/[id]/edit/page.tsx
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import CourseForm from '@/components/admin/course-form'
@@ -30,13 +29,21 @@ export default async function EditCoursePage({
 
   const { data: course, error } = await supabase
     .from('courses')
-    .select('id, title, slug, description, is_free, is_published')
+    .select('id, title, slug, description, is_free, is_published, teacher_id')
     .eq('id', courseId)
     .single()
 
   if (error || !course) {
     notFound()
   }
+
+  const { data: teachersData } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, role')
+    .in('role', ['teacher', 'admin'])
+    .order('full_name', { ascending: true })
+
+  const teachers = teachersData ?? []
 
   const { data: lessonsData } = await supabase
     .from('lessons')
@@ -54,19 +61,21 @@ export default async function EditCoursePage({
         </p>
         <h2 className="mt-2 text-3xl font-bold text-slate-900">Edit course</h2>
         <p className="mt-2 text-slate-600">
-          Update your course details and publishing status.
+          Update course details, publishing status, and teacher ownership.
         </p>
       </div>
 
       <CourseForm
         mode="edit"
         courseId={course.id}
+        teachers={teachers}
         initialValues={{
           title: course.title ?? '',
           slug: course.slug ?? '',
           description: course.description ?? '',
           is_free: course.is_free ?? true,
           is_published: course.is_published ?? false,
+          teacher_id: course.teacher_id ?? null,
         }}
       />
 

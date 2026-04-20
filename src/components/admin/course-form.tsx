@@ -5,15 +5,24 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+type TeacherOption = {
+  id: string
+  full_name: string | null
+  email: string | null
+  role: string | null
+}
+
 type CourseFormProps = {
   mode: 'create' | 'edit'
   courseId?: number
+  teachers: TeacherOption[]
   initialValues?: {
     title: string
     slug: string
     description: string
     is_free: boolean
     is_published: boolean
+    teacher_id: string | null
   }
 }
 
@@ -29,6 +38,7 @@ function slugify(value: string) {
 export default function CourseForm({
   mode,
   courseId,
+  teachers,
   initialValues,
 }: CourseFormProps) {
   const router = useRouter()
@@ -41,6 +51,7 @@ export default function CourseForm({
   const [isPublished, setIsPublished] = useState(
     initialValues?.is_published ?? false
   )
+  const [teacherId, setTeacherId] = useState(initialValues?.teacher_id ?? '')
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [slugTouched, setSlugTouched] = useState(Boolean(initialValues?.slug))
@@ -77,6 +88,7 @@ export default function CourseForm({
       description: description.trim(),
       is_free: isFree,
       is_published: isPublished,
+      teacher_id: teacherId || null,
     }
 
     if (mode === 'create') {
@@ -139,6 +151,29 @@ export default function CourseForm({
           />
           <p className="mt-2 text-xs text-slate-500">
             Used in the URL, for example: /courses/english-basics
+          </p>
+        </div>
+
+        <div>
+          <label className="mb-2 block text-sm font-medium text-slate-700">
+            Course teacher
+          </label>
+          <select
+            value={teacherId}
+            onChange={(e) => setTeacherId(e.target.value)}
+            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+          >
+            <option value="">Unassigned</option>
+
+            {teachers.map((teacher) => (
+              <option key={teacher.id} value={teacher.id}>
+                {(teacher.full_name || teacher.email || 'Unnamed teacher') +
+                  ` (${teacher.role || 'teacher'})`}
+              </option>
+            ))}
+          </select>
+          <p className="mt-2 text-xs text-slate-500">
+            Assign this course to a teacher. Admins can still manage all courses.
           </p>
         </div>
 

@@ -1,32 +1,46 @@
 import Link from 'next/link'
 
-const navItems = [
-  { href: '/', label: 'Home' },
-  { href: '/about', label: 'About' },
-  { href: '/free-training', label: 'Free Training' },
-  { href: '/services', label: 'Services' },
-  { href: '/login', label: 'Login' },
-]
-
 export default function SiteHeader() {
   return (
-    <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur">
+    <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-        <Link href="/" className="text-xl font-bold tracking-tight text-slate-900">
+        <Link href="/" className="text-xl font-bold text-slate-900">
           Torres <span className="text-blue-600">Academy</span>
         </Link>
 
-        <nav className="flex flex-wrap items-center gap-5 text-sm font-medium">
-          {navItems.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-slate-700 transition hover:text-blue-600"
-            >
-              {item.label}
-            </Link>
-          ))}
+        <nav className="hidden items-center gap-6 text-sm font-medium text-slate-700 md:flex">
+          <Link href="/" className="hover:text-blue-600">
+            Home
+          </Link>
+          <Link href="/about" className="hover:text-blue-600">
+            About
+          </Link>
+          <Link href="/free-training" className="hover:text-blue-600">
+            Free Training
+          </Link>
+          <Link href="/services" className="hover:text-blue-600">
+            Services
+          </Link>
+          <Link href="/contact" className="hover:text-blue-600">
+            Contact
+          </Link>
         </nav>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/login"
+            className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+          >
+            Login
+          </Link>
+
+          <Link
+            href="/login"
+            className="hidden rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 sm:inline-block"
+          >
+            Join Free
+          </Link>
+        </div>
       </div>
     </header>
   )

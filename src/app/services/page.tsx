@@ -1,79 +1,72 @@
-// src/app/services/page.tsx
 import Link from 'next/link'
 import SiteHeader from '@/components/site-header'
 import SiteFooter from '@/components/site-footer'
 
 export default function ServicesPage() {
+  const services = [
+    {
+      title: '1-to-1 Online Lessons',
+      text: 'Personalized lessons for students who need direct support, explanation, and guided practice.',
+    },
+    {
+      title: 'Free Training Courses',
+      text: 'Introductory courses that help students get started through the online portal.',
+    },
+    {
+      title: 'Exam and Skills Support',
+      text: 'Focused help for specific topics, exam preparation, computing, English, or study skills.',
+    },
+    {
+      title: 'Course-Based Learning',
+      text: 'Structured lessons that students can complete step by step with progress tracking.',
+    },
+  ]
+
   return (
-    <>
+    <main className="min-h-screen bg-slate-50 text-slate-900">
       <SiteHeader />
 
-      <main className="bg-white">
-        <section className="border-b">
-          <div className="mx-auto max-w-5xl px-6 py-20">
-            <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-              Services
-            </p>
-            <h1 className="mt-4 text-4xl font-bold">How Torres Academy can help</h1>
-            <p className="mt-6 max-w-2xl text-lg text-gray-600">
-              In addition to free training, Torres Academy can offer guided learning,
-              structured lessons, and personalized support.
-            </p>
-          </div>
-        </section>
+      <section className="bg-gradient-to-br from-slate-950 to-blue-950 text-white">
+        <div className="mx-auto max-w-6xl px-6 py-16">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-200">
+            Services
+          </p>
 
-        <section>
-          <div className="mx-auto grid max-w-5xl gap-6 px-6 py-16 md:grid-cols-3">
-            <div className="rounded-2xl border p-6">
-              <h2 className="text-xl font-semibold">Private Support</h2>
-              <p className="mt-3 text-gray-600">
-                One-to-one guidance for students who want more focused help.
-              </p>
-            </div>
+          <h1 className="mt-3 max-w-3xl text-4xl font-bold tracking-tight md:text-5xl">
+            Online learning support designed around student progress.
+          </h1>
 
-            <div className="rounded-2xl border p-6">
-              <h2 className="text-xl font-semibold">Short Courses</h2>
-              <p className="mt-3 text-gray-600">
-                Practical online courses designed around clear learning goals.
-              </p>
-            </div>
+          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-200">
+            Choose free training, guided lessons, or focused academic support.
+          </p>
+        </div>
+      </section>
 
-            <div className="rounded-2xl border p-6">
-              <h2 className="text-xl font-semibold">Learning Resources</h2>
-              <p className="mt-3 text-gray-600">
-                Structured materials and guided lessons to support steady progress.
-              </p>
-            </div>
-          </div>
-        </section>
+      <section>
+        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-14 md:grid-cols-2">
+          {services.map((service) => (
+            <div
+              key={service.title}
+              className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"
+            >
+              <h2 className="text-2xl font-bold text-slate-900">
+                {service.title}
+              </h2>
 
-        <section className="border-y bg-gray-50">
-          <div className="mx-auto max-w-5xl px-6 py-16">
-            <h2 className="text-3xl font-bold">Work with Torres Academy</h2>
-            <p className="mt-4 max-w-2xl text-gray-600">
-              This page can later include your real offers, pricing, and contact details.
-              For now, it serves as a professional public page for your teaching brand.
-            </p>
+              <p className="mt-4 leading-7 text-slate-600">{service.text}</p>
 
-            <div className="mt-6 flex flex-wrap gap-4">
               <Link
-                href="/free-training"
-                className="rounded-lg border px-5 py-3 font-medium"
+                href="/contact"
+                className="mt-6 inline-block rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
               >
-                Start with Free Training
-              </Link>
-              <Link
-                href="/login"
-                className="rounded-lg border px-5 py-3 font-medium"
-              >
-                Student Login
+                Ask about this service
               </Link>
             </div>
-          </div>
-        </section>
-      </main>
+          ))}
+        </div>
+      </section>
 
       <SiteFooter />
-    </>
+    </main>
   )
 }

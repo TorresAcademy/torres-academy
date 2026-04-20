@@ -8,6 +8,7 @@ type Course = {
   description: string | null
   is_published: boolean | null
   is_free: boolean | null
+  teacher_id: string | null
 }
 
 type Lesson = {
@@ -15,15 +16,37 @@ type Lesson = {
   course_id: number
 }
 
+type Teacher = {
+  id: string
+  full_name: string | null
+  email: string | null
+  role: string | null
+}
+
 export default async function AdminCoursesPage() {
   const { supabase } = await requireAdmin()
 
   const { data: coursesData } = await supabase
     .from('courses')
-    .select('id, title, slug, description, is_published, is_free')
+    .select('id, title, slug, description, is_published, is_free, teacher_id')
     .order('created_at', { ascending: false })
 
+  const { data: teachersData } = await supabase
+    .from('profiles')
+    .select('id, full_name, email, role')
+    .in('role', ['teacher', 'admin'])
+    .order('full_name', { ascending: true })
+
   const courses = (coursesData ?? []) as Course[]
+  const teachers = (teachersData ?? []) as Teacher[]
+
+  const teacherMap = new Map(
+    teachers.map((teacher) => [
+      teacher.id,
+      teacher.full_name || teacher.email || 'Unnamed teacher',
+    ])
+  )
+
   const courseIds = courses.map((course) => course.id)
 
   let lessons: Lesson[] = []
@@ -47,7 +70,7 @@ export default async function AdminCoursesPage() {
             Manage courses
           </h2>
           <p className="mt-2 text-slate-600">
-            Create, edit, and publish your courses.
+            Create, edit, publish, and assign courses to teachers.
           </p>
         </div>
 
@@ -70,6 +93,10 @@ export default async function AdminCoursesPage() {
               (lesson) => lesson.course_id === course.id
             ).length
 
+            const teacherName = course.teacher_id
+              ? teacherMap.get(course.teacher_id) || 'Unknown teacher'
+              : 'Unassigned'
+
             return (
               <article
                 key={course.id}
@@ -89,20 +116,19 @@ export default async function AdminCoursesPage() {
                       <span>Slug: {course.slug}</span>
                       <span>Lessons: {lessonCount}</span>
                       <span>{course.is_free ? 'Free' : 'Not free'}</span>
+                      <span>Teacher: {teacherName}</span>
                     </div>
                   </div>
 
-                  <div className="flex flex-wrap gap-2">
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                        course.is_published
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-amber-100 text-amber-700'
-                      }`}
-                    >
-                      {course.is_published ? 'Published' : 'Draft'}
-                    </span>
-                  </div>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      course.is_published
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    {course.is_published ? 'Published' : 'Draft'}
+                  </span>
                 </div>
 
                 <div className="mt-5 flex flex-wrap gap-3">

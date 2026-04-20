@@ -1,78 +1,57 @@
-// src/app/about/page.tsx
-import Link from 'next/link'
 import SiteHeader from '@/components/site-header'
 import SiteFooter from '@/components/site-footer'
 
 export default function AboutPage() {
   return (
-    <>
+    <main className="min-h-screen bg-slate-50 text-slate-900">
       <SiteHeader />
 
-      <main className="bg-white">
-        <section className="border-b">
-          <div className="mx-auto max-w-4xl px-6 py-20">
-            <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-              About Torres Academy
-            </p>
-            <h1 className="mt-4 text-4xl font-bold">A simple and practical way to learn</h1>
-            <p className="mt-6 text-lg text-gray-600">
-              Torres Academy is built to help students learn through clear lessons,
-              practical guidance, and a supportive online experience.
-            </p>
-          </div>
-        </section>
+      <section className="bg-white">
+        <div className="mx-auto max-w-5xl px-6 py-16">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+            About Torres Academy
+          </p>
 
-        <section>
-          <div className="mx-auto max-w-4xl px-6 py-16 space-y-10">
-            <div>
-              <h2 className="text-2xl font-semibold">The mission</h2>
-              <p className="mt-3 text-gray-700">
-                The goal is to make learning feel simple, structured, and useful.
-                Students should know what to do next, what they are improving, and
-                how to keep moving forward.
-              </p>
+          <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
+            Practical online teaching with a clear learning path.
+          </h1>
+
+          <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
+            Torres Academy is designed to help students learn through short,
+            clear lessons, guided support, and a personal dashboard where they can
+            track their progress.
+          </p>
+        </div>
+      </section>
+
+      <section>
+        <div className="mx-auto grid max-w-5xl gap-6 px-6 py-12 md:grid-cols-3">
+          {[
+            {
+              title: 'Simple',
+              text: 'Lessons are organized so students know what to do next.',
+            },
+            {
+              title: 'Practical',
+              text: 'Training focuses on useful skills and steady improvement.',
+            },
+            {
+              title: 'Supportive',
+              text: 'Students can receive guided help when they need it.',
+            },
+          ].map((item) => (
+            <div
+              key={item.title}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+            >
+              <h2 className="text-xl font-bold text-slate-900">{item.title}</h2>
+              <p className="mt-3 leading-7 text-slate-600">{item.text}</p>
             </div>
-
-            <div>
-              <h2 className="text-2xl font-semibold">The teaching style</h2>
-              <p className="mt-3 text-gray-700">
-                Lessons are designed to be clear, focused, and practical. Instead of
-                making learning feel overwhelming, Torres Academy helps students take
-                one step at a time.
-              </p>
-            </div>
-
-            <div>
-              <h2 className="text-2xl font-semibold">What students can expect</h2>
-              <ul className="mt-4 space-y-3 text-gray-700">
-                <li>Simple explanations</li>
-                <li>Short courses and focused lessons</li>
-                <li>Learning resources inside a student portal</li>
-                <li>Steady progress through guided practice</li>
-              </ul>
-            </div>
-
-            <div className="rounded-2xl border p-6">
-              <h2 className="text-2xl font-semibold">Start your journey</h2>
-              <p className="mt-3 text-gray-700">
-                Begin with the free training to explore the platform and see how
-                Torres Academy can support your learning.
-              </p>
-
-              <div className="mt-5">
-                <Link
-                  href="/free-training"
-                  className="inline-block rounded-lg border px-5 py-3 font-medium"
-                >
-                  Go to Free Training
-                </Link>
-              </div>
-            </div>
-          </div>
-        </section>
-      </main>
+          ))}
+        </div>
+      </section>
 
       <SiteFooter />
-    </>
+    </main>
   )
 }

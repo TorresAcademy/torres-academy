@@ -90,7 +90,15 @@ export default function LoginPage() {
       return '/dashboard'
     }
 
-    return profile?.role === 'admin' ? '/admin' : '/dashboard'
+    if (profile?.role === 'admin') {
+      return '/admin'
+    }
+
+    if (profile?.role === 'teacher') {
+      return '/teacher'
+    }
+
+    return '/dashboard'
   }
 
   async function handleSignIn(e: React.FormEvent) {

@@ -1,4 +1,5 @@
 import { requireAdmin } from '@/lib/admin/require-admin'
+import UserRoleSelect from '@/components/admin/user-role-select'
 
 type Profile = {
   id: string
@@ -9,7 +10,7 @@ type Profile = {
 }
 
 export default async function AdminUsersPage() {
-  const { supabase } = await requireAdmin()
+  const { supabase, user } = await requireAdmin()
 
   const { data } = await supabase
     .from('profiles')
@@ -25,8 +26,11 @@ export default async function AdminUsersPage() {
           Users
         </p>
         <h2 className="mt-2 text-3xl font-bold text-slate-900">
-          Student list
+          Manage users
         </h2>
+        <p className="mt-2 text-slate-600">
+          View users and assign roles: student, teacher, or admin.
+        </p>
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -43,27 +47,43 @@ export default async function AdminUsersPage() {
                   <th className="py-3 pr-4">Joined</th>
                 </tr>
               </thead>
+
               <tbody>
-                {users.map((user) => (
-                  <tr key={user.id} className="border-b border-slate-100">
-                    <td className="py-3 pr-4 text-slate-900">
-                      {user.full_name || '—'}
-                    </td>
-                    <td className="py-3 pr-4 text-slate-700">
-                      {user.email || '—'}
-                    </td>
-                    <td className="py-3 pr-4">
-                      <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                        {user.role || 'student'}
-                      </span>
-                    </td>
-                    <td className="py-3 pr-4 text-slate-700">
-                      {user.created_at
-                        ? new Date(user.created_at).toLocaleDateString()
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
+                {users.map((profile) => {
+                  const isCurrentUser = profile.id === user.id
+
+                  return (
+                    <tr key={profile.id} className="border-b border-slate-100">
+                      <td className="py-3 pr-4 text-slate-900">
+                        {profile.full_name || '—'}
+                      </td>
+
+                      <td className="py-3 pr-4 text-slate-700">
+                        {profile.email || '—'}
+                      </td>
+
+                      <td className="py-3 pr-4">
+                        <UserRoleSelect
+                          userId={profile.id}
+                          currentRole={profile.role || 'student'}
+                          disabled={isCurrentUser}
+                        />
+
+                        {isCurrentUser && (
+                          <p className="mt-1 text-xs text-slate-500">
+                            You cannot change your own role here.
+                          </p>
+                        )}
+                      </td>
+
+                      <td className="py-3 pr-4 text-slate-700">
+                        {profile.created_at
+                          ? new Date(profile.created_at).toLocaleDateString()
+                          : '—'}
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

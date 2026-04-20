@@ -39,24 +39,35 @@ export default async function AdminLayout({
             >
               Overview
             </Link>
+
             <Link
               href="/admin/courses"
               className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
             >
               Courses
             </Link>
+
             <Link
               href="/admin/lessons"
               className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
             >
               Lessons
             </Link>
+
+            <Link
+              href="/admin/teachers"
+              className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+            >
+              Teachers
+            </Link>
+
             <Link
               href="/admin/users"
               className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
             >
               Users
             </Link>
+
             <Link
               href="/dashboard"
               className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"

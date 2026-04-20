@@ -1,93 +1,121 @@
-// src/app/free-training/page.tsx
 import Link from 'next/link'
 import SiteHeader from '@/components/site-header'
 import SiteFooter from '@/components/site-footer'
+import { createClient } from '@/lib/supabase/server'
 
-export default function FreeTrainingPage() {
+type Course = {
+  id: number
+  title: string
+  slug: string
+  description: string | null
+}
+
+export default async function FreeTrainingPage() {
+  const supabase = await createClient()
+
+  const { data } = await supabase
+    .from('courses')
+    .select('id, title, slug, description')
+    .eq('is_published', true)
+    .eq('is_free', true)
+    .order('created_at', { ascending: false })
+
+  const courses = (data ?? []) as Course[]
+
   return (
-    <>
+    <main className="min-h-screen bg-slate-50 text-slate-900">
       <SiteHeader />
 
-      <main className="bg-white">
-        <section className="border-b bg-gray-50">
-          <div className="mx-auto max-w-5xl px-6 py-20">
-            <p className="text-sm font-semibold uppercase tracking-wide text-gray-500">
-              Free Training
-            </p>
-            <h1 className="mt-4 text-4xl font-bold">Start learning with a free short course</h1>
-            <p className="mt-6 max-w-2xl text-lg text-gray-600">
-              The free training is designed to help new students get started quickly,
-              understand the teaching style, and build confidence from the first lesson.
-            </p>
+      <section className="bg-white">
+        <div className="mx-auto max-w-6xl px-6 py-16">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+            Free Training
+          </p>
 
-            <div className="mt-8 flex flex-wrap gap-4">
-              <Link
-                href="/login"
-                className="rounded-lg border px-5 py-3 font-medium"
-              >
-                Join Free Training
-              </Link>
-              <Link
-                href="/dashboard"
-                className="rounded-lg border px-5 py-3 font-medium"
-              >
-                Open Dashboard
-              </Link>
+          <h1 className="mt-3 max-w-3xl text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
+            Start learning with free online courses.
+          </h1>
+
+          <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-600">
+            Create a free account, enroll in a course, and continue lessons from
+            your student dashboard.
+          </p>
+
+          <div className="mt-8 flex flex-wrap gap-4">
+            <Link
+              href="/login"
+              className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
+            >
+              Join Free
+            </Link>
+
+            <Link
+              href="/services"
+              className="rounded-xl border border-slate-300 bg-white px-6 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+            >
+              View Services
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="mx-auto max-w-6xl px-6 py-14">
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-bold text-slate-900">
+                Available free courses
+              </h2>
+              <p className="mt-2 text-slate-600">
+                Published free courses students can join.
+              </p>
             </div>
           </div>
-        </section>
 
-        <section>
-          <div className="mx-auto max-w-5xl px-6 py-16">
-            <div className="grid gap-6 md:grid-cols-3">
-              <div className="rounded-2xl border p-6">
-                <h2 className="text-xl font-semibold">Step 1</h2>
-                <p className="mt-3 text-gray-600">
-                  Create your account using a simple email login.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border p-6">
-                <h2 className="text-xl font-semibold">Step 2</h2>
-                <p className="mt-3 text-gray-600">
-                  Access your student dashboard and open the available course.
-                </p>
-              </div>
-
-              <div className="rounded-2xl border p-6">
-                <h2 className="text-xl font-semibold">Step 3</h2>
-                <p className="mt-3 text-gray-600">
-                  Complete lessons and track your progress as you learn.
-                </p>
-              </div>
+          {courses.length === 0 ? (
+            <div className="mt-8 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+              <p className="text-slate-700">
+                No free courses are published yet. Please check again soon.
+              </p>
             </div>
-          </div>
-        </section>
+          ) : (
+            <div className="mt-8 grid gap-6 md:grid-cols-2">
+              {courses.map((course) => (
+                <article
+                  key={course.id}
+                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+                >
+                  <h3 className="text-2xl font-bold text-slate-900">
+                    {course.title}
+                  </h3>
 
-        <section className="border-y">
-          <div className="mx-auto max-w-5xl px-6 py-16">
-            <h2 className="text-3xl font-bold">What is included</h2>
+                  <p className="mt-3 leading-7 text-slate-600">
+                    {course.description || 'No description yet.'}
+                  </p>
 
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
-              <div className="rounded-2xl border p-6">
-                <h3 className="text-xl font-semibold">Short lessons</h3>
-                <p className="mt-3 text-gray-600">
-                  Focused lessons designed to help students learn without feeling overwhelmed.
-                </p>
-              </div>
+                  <div className="mt-6 flex flex-wrap gap-3">
+                    <Link
+                      href={`/courses/${course.slug}`}
+                      className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                    >
+                      View course
+                    </Link>
 
-              <div className="rounded-2xl border p-6">
-                <h3 className="text-xl font-semibold">Simple progress tracking</h3>
-                <p className="mt-3 text-gray-600">
-                  Students can complete lessons and clearly see what they have finished.
-                </p>
-              </div>
+                    <Link
+                      href="/login"
+                      className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700"
+                    >
+                      Enroll free
+                    </Link>
+                  </div>
+                </article>
+              ))}
             </div>
-          </div>
-        </section>
-      </main>
+          )}
+        </div>
+      </section>
 
       <SiteFooter />
-    </>
+    </main>
   )
 }
