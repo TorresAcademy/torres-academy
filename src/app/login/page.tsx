@@ -28,10 +28,6 @@ function LoginPageInner() {
   const [errorMessage, setErrorMessage] = useState('')
 
   async function getTargetPath(userId: string) {
-    if (safeNext) {
-      return safeNext
-    }
-
     const { data: profile, error } = await supabase
       .from('profiles')
       .select('role')
@@ -49,6 +45,10 @@ function LoginPageInner() {
 
     if (profile?.role === 'teacher') {
       return '/teacher'
+    }
+
+    if (safeNext && safeNext !== '/dashboard') {
+      return safeNext
     }
 
     return '/dashboard'
@@ -143,9 +143,7 @@ function LoginPageInner() {
         role: 'student',
       })
 
-      const targetPath = await getTargetPath(data.user.id)
-
-      router.push(targetPath)
+      router.push('/dashboard')
       router.refresh()
       return
     }
@@ -199,7 +197,7 @@ function LoginPageInner() {
           </Link>
 
           <p className="mt-8 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-            Student Portal
+            Academy Portal
           </p>
 
           <h1 className="mt-3 max-w-2xl text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
@@ -208,7 +206,7 @@ function LoginPageInner() {
 
           <p className="mt-5 max-w-xl text-lg leading-8 text-slate-600">
             Access your dashboard, courses, lessons, quizzes, notes, reflections,
-            and teacher feedback from one place.
+            teacher hub, or admin panel depending on your account role.
           </p>
 
           <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -220,16 +218,16 @@ function LoginPageInner() {
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-2xl font-bold text-blue-600">Reflect</p>
+              <p className="text-2xl font-bold text-blue-600">Teach</p>
               <p className="mt-2 text-sm text-slate-600">
-                Save notes and metacognition.
+                Manage courses, lessons, quizzes, and feedback.
               </p>
             </div>
 
             <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-              <p className="text-2xl font-bold text-blue-600">Improve</p>
+              <p className="text-2xl font-bold text-blue-600">Admin</p>
               <p className="mt-2 text-sm text-slate-600">
-                Request teacher feedback.
+                Manage users, teachers, courses, and platform settings.
               </p>
             </div>
           </div>
@@ -281,7 +279,7 @@ function LoginPageInner() {
 
             <p className="mt-2 text-slate-600">
               {mode === 'login'
-                ? 'Use your email and password to continue.'
+                ? 'Admins and teachers will be redirected to their correct dashboard.'
                 : 'New accounts start as students. Admin can promote teachers later.'}
             </p>
           </div>

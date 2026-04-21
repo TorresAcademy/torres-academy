@@ -61,7 +61,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
   let lessonQuery = supabase
     .from('lessons')
     .select(
-      'id, title, slug, content, position, course_id, is_published, media_path, media_type, media_original_name, media_mime_type'
+      'id, title, slug, content, position, course_id, is_published, media_path, media_type, media_original_name, media_mime_type, teacher_explanation, encouragement_title, encouragement_text'
     )
     .eq('slug', slug)
 
@@ -335,6 +335,9 @@ export default async function LessonPage({ params }: LessonPageProps) {
         slug: lesson.slug,
         content: lesson.content,
         position: lesson.position,
+        teacher_explanation: lesson.teacher_explanation,
+        encouragement_title: lesson.encouragement_title,
+        encouragement_text: lesson.encouragement_text,
       }}
       lessons={navigationLessons}
       previousLesson={previousLesson}

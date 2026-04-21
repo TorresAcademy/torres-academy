@@ -2,6 +2,11 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 
+type Course = {
+  id: number
+  title: string
+}
+
 function slugify(value: string) {
   return value
     .toLowerCase()
@@ -11,7 +16,7 @@ function slugify(value: string) {
     .replace(/-+/g, '-')
 }
 
-export default async function TeacherNewLessonPage() {
+export default async function NewTeacherLessonPage() {
   const { supabase, user, profile } = await requireTeacherOrAdmin()
   const isAdmin = profile.role === 'admin'
 
@@ -26,7 +31,7 @@ export default async function TeacherNewLessonPage() {
         .eq('teacher_id', user.id)
         .order('title', { ascending: true })
 
-  const courses = coursesData ?? []
+  const courses = (coursesData ?? []) as Course[]
 
   async function createLesson(formData: FormData) {
     'use server'
@@ -36,45 +41,63 @@ export default async function TeacherNewLessonPage() {
 
     const courseId = Number(formData.get('course_id'))
     const title = String(formData.get('title') || '').trim()
-    const slug = slugify(String(formData.get('slug') || title))
-    const position = Number(formData.get('position') || 1)
-    const videoUrl = String(formData.get('video_url') || '').trim()
+    const slugValue = String(formData.get('slug') || '').trim()
     const content = String(formData.get('content') || '').trim()
+    const videoUrl = String(formData.get('video_url') || '').trim()
+    const position = Number(formData.get('position') || 1)
     const isPublished = formData.get('is_published') === 'on'
+    const teacherExplanation = String(
+      formData.get('teacher_explanation') || ''
+    ).trim()
+    const encouragementTitle = String(
+      formData.get('encouragement_title') || ''
+    ).trim()
+    const encouragementText = String(
+      formData.get('encouragement_text') || ''
+    ).trim()
 
-    if (!courseId || !title || !slug || !position) {
+    if (!courseId || !title) {
       redirect('/teacher/lessons/new')
     }
 
-    if (!isAdmin) {
-      const { data: ownedCourse } = await supabase
-        .from('courses')
-        .select('id')
-        .eq('id', courseId)
-        .eq('teacher_id', user.id)
-        .maybeSingle()
+    const { data: targetCourse } = await supabase
+      .from('courses')
+      .select('id, teacher_id')
+      .eq('id', courseId)
+      .maybeSingle()
 
-      if (!ownedCourse) {
-        redirect('/teacher/lessons')
-      }
-    }
-
-    const { error } = await supabase.from('lessons').insert({
-      course_id: courseId,
-      title,
-      slug,
-      position,
-      video_url: videoUrl || null,
-      content,
-      is_published: isPublished,
-    })
-
-    if (error) {
-      console.error(error)
+    if (!targetCourse) {
       redirect('/teacher/lessons/new')
     }
 
-    redirect('/teacher/lessons')
+    if (!isAdmin && targetCourse.teacher_id !== user.id) {
+      redirect('/teacher/lessons')
+    }
+
+    const cleanSlug = slugify(slugValue || title)
+
+    const { data: createdLesson } = await supabase
+      .from('lessons')
+      .insert({
+        course_id: courseId,
+        title,
+        slug: cleanSlug,
+        content,
+        video_url: videoUrl || null,
+        position: position || 1,
+        is_published: isPublished,
+        teacher_explanation: teacherExplanation || null,
+        encouragement_title: encouragementTitle || null,
+        encouragement_text: encouragementText || null,
+      })
+      .select('id')
+      .single()
+
+    if (!createdLesson) {
+      redirect('/teacher/lessons')
+    }
+
+    redirect(`/teacher/lessons/${createdLesson.id}/edit`)
   }
 
   return (
@@ -88,7 +111,7 @@ export default async function TeacherNewLessonPage() {
         </Link>
 
         <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-          Lessons
+          Unified Lesson Editor
         </p>
 
         <h2 className="mt-2 text-3xl font-bold text-slate-900">
@@ -96,140 +119,175 @@ export default async function TeacherNewLessonPage() {
         </h2>
 
         <p className="mt-2 text-slate-600">
-          Add a lesson to one of your courses.
+          Create the lesson first, then add media and quizzes from the lesson
+          editor.
         </p>
       </div>
 
       {courses.length === 0 ? (
         <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
           <p className="text-slate-700">
-            You need at least one course before creating lessons.
+            You need at least one assigned course before creating lessons.
           </p>
 
-          <div className="mt-4">
-            <Link
-              href="/teacher/courses/new"
-              className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
-            >
-              Create course first
-            </Link>
-          </div>
+          <Link
+            href="/teacher/courses"
+            className="mt-5 inline-flex rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+          >
+            Go to courses
+          </Link>
         </div>
       ) : (
         <form
           action={createLesson}
-          className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"
+          className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"
         >
-          <div className="space-y-5">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Course
-              </label>
-              <select
-                name="course_id"
-                required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-              >
-                {courses.map((course) => (
-                  <option key={course.id} value={course.id}>
-                    {course.title}
-                  </option>
-                ))}
-              </select>
-            </div>
+          <section>
+            <h3 className="text-2xl font-bold text-slate-900">
+              Lesson details
+            </h3>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Lesson title
-              </label>
-              <input
-                name="title"
-                type="text"
-                required
-                placeholder="Lesson 1: Introduce Yourself"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Slug
-              </label>
-              <input
-                name="slug"
-                type="text"
-                placeholder="introduce-yourself"
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-              />
-              <p className="mt-2 text-xs text-slate-500">
-                Leave blank to generate from title.
-              </p>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Position
-              </label>
-              <input
-                name="position"
-                type="number"
-                min="1"
-                defaultValue="1"
-                required
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Video URL
-              </label>
-              <input
-                name="video_url"
-                type="text"
-                placeholder="https://youtube.com/..."
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Lesson content
-              </label>
-              <textarea
-                name="content"
-                rows={10}
-                placeholder="Write the lesson content here..."
-                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4">
-              <input name="is_published" type="checkbox" className="h-4 w-4" />
+            <div className="mt-6 grid gap-5">
               <div>
-                <p className="font-medium text-slate-900">Published</p>
-                <p className="text-sm text-slate-500">
-                  Make this lesson visible to students.
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Course
+                </label>
+
+                <select
+                  name="course_id"
+                  required
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                >
+                  <option value="">Choose course</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>
+                      {course.title}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Lesson title
+                </label>
+
+                <input
+                  name="title"
+                  required
+                  placeholder="Lesson 1: Introduce Yourself"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Slug
+                </label>
+
+                <input
+                  name="slug"
+                  placeholder="introduce-yourself"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                />
+
+                <p className="mt-2 text-xs text-slate-500">
+                  Leave blank to create one from the title.
                 </p>
               </div>
-            </label>
-          </div>
 
-          <div className="mt-8 flex flex-wrap gap-3">
-            <button
-              type="submit"
-              className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
-            >
-              Create lesson
-            </button>
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Lesson content
+                </label>
 
-            <Link
-              href="/teacher/lessons"
-              className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-            >
-              Cancel
-            </Link>
-          </div>
+                <textarea
+                  name="content"
+                  rows={12}
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                  placeholder="Write the main lesson content here..."
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Video URL
+                </label>
+
+                <input
+                  name="video_url"
+                  placeholder="Optional old video URL. Protected media is managed separately."
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm font-medium text-slate-700">
+                  Position
+                </label>
+
+                <input
+                  name="position"
+                  type="number"
+                  min="1"
+                  defaultValue="1"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="rounded-3xl border border-blue-100 bg-blue-50 p-6">
+            <h3 className="text-2xl font-bold text-slate-900">
+              Teacher explanation
+            </h3>
+
+            <textarea
+              name="teacher_explanation"
+              rows={6}
+              className="mt-5 w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+              placeholder="Add extra explanation, common mistakes, examples, or guidance..."
+            />
+          </section>
+
+          <section className="rounded-3xl border border-amber-100 bg-amber-50 p-6">
+            <h3 className="text-2xl font-bold text-slate-900">
+              Encouragement note
+            </h3>
+
+            <div className="mt-5 grid gap-5">
+              <input
+                name="encouragement_title"
+                placeholder="Teaching note"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+              />
+
+              <textarea
+                name="encouragement_text"
+                rows={5}
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                placeholder="Encourage students, give reminders, or guide their next step..."
+              />
+            </div>
+          </section>
+
+          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <input name="is_published" type="checkbox" className="h-4 w-4" />
+
+            <div>
+              <p className="font-medium text-slate-900">Published</p>
+              <p className="text-sm text-slate-500">
+                Students can only access published lessons.
+              </p>
+            </div>
+          </label>
+
+          <button
+            type="submit"
+            className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
+          >
+            Create lesson
+          </button>
         </form>
       )}
     </div>

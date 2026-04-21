@@ -83,6 +83,9 @@ type StudentLessonExperienceProps = {
     slug: string
     content: string | null
     position: number
+    teacher_explanation: string | null
+    encouragement_title: string | null
+    encouragement_text: string | null
   }
   lessons: LessonNavigationItem[]
   previousLesson: {
@@ -152,6 +155,11 @@ export default function StudentLessonExperience({
     () => contentToParagraphs(lesson.content),
     [lesson.content]
   )
+
+  const teacherExplanation = lesson.teacher_explanation?.trim()
+  const encouragementTitle =
+    lesson.encouragement_title?.trim() || 'Teaching note'
+  const encouragementText = lesson.encouragement_text?.trim()
 
   const completedCount = lessons.filter((item) => item.completed).length
   const totalLessons = lessons.length
@@ -276,9 +284,11 @@ export default function StudentLessonExperience({
             <p className="text-sm font-medium text-slate-500">
               {course.title}
             </p>
+
             <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">
               {lesson.title}
             </h1>
+
             <p className="mt-2 text-sm text-slate-600">
               Lesson {lesson.position} of {totalLessons}
             </p>
@@ -382,6 +392,7 @@ export default function StudentLessonExperience({
                   <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
                     Learning screen
                   </p>
+
                   <h2 className="mt-2 text-2xl font-bold text-slate-900">
                     {lesson.title}
                   </h2>
@@ -424,6 +435,7 @@ export default function StudentLessonExperience({
                     <h3 className="text-lg font-bold text-slate-900">
                       Quick reaction
                     </h3>
+
                     <p className="mt-2 text-sm text-slate-600">
                       Tell your teacher how this lesson feels.
                     </p>
@@ -464,6 +476,7 @@ export default function StudentLessonExperience({
                 <h3 className="text-lg font-bold text-slate-900">
                   Mid-lesson quizzes
                 </h3>
+
                 <p className="mt-2 text-sm text-slate-600">
                   Check your understanding before continuing.
                 </p>
@@ -489,18 +502,28 @@ export default function StudentLessonExperience({
                 <h3 className="text-lg font-bold text-slate-900">
                   Teacher explanation
                 </h3>
-                <p className="mt-2 text-sm leading-7 text-slate-700">
-                  Use this area for extra explanation, common mistakes,
-                  reminders, examples, or guidance from the teacher.
-                </p>
 
-                <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm leading-7 text-slate-700">
-                  <p className="font-semibold text-slate-900">Teaching note</p>
-                  <p className="mt-2">
-                    Encourage students to reflect, review key vocabulary, and
-                    revisit the lesson if they feel unsure before moving on.
+                {teacherExplanation ? (
+                  <p className="mt-2 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                    {teacherExplanation}
                   </p>
-                </div>
+                ) : (
+                  <p className="mt-2 text-sm leading-7 text-slate-600">
+                    No teacher explanation has been added for this lesson yet.
+                  </p>
+                )}
+
+                {encouragementText && (
+                  <div className="mt-4 rounded-2xl bg-amber-50 p-4 text-sm leading-7 text-slate-700">
+                    <p className="font-semibold text-slate-900">
+                      {encouragementTitle}
+                    </p>
+
+                    <p className="mt-2 whitespace-pre-wrap">
+                      {encouragementText}
+                    </p>
+                  </div>
+                )}
               </div>
 
               <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
@@ -509,6 +532,7 @@ export default function StudentLessonExperience({
                     <h3 className="text-lg font-bold text-slate-900">
                       Reflection / metacognition
                     </h3>
+
                     <p className="mt-2 text-sm text-slate-600">
                       Think about your learning before moving on.
                     </p>
@@ -625,6 +649,7 @@ export default function StudentLessonExperience({
                     <h3 className="text-lg font-bold text-slate-900">
                       Lesson actions
                     </h3>
+
                     <p className="mt-1 text-sm text-slate-600">
                       Save your progress and continue your learning journey.
                     </p>
@@ -686,6 +711,7 @@ export default function StudentLessonExperience({
                     <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
                       My notes
                     </p>
+
                     <h2 className="mt-2 text-xl font-bold text-slate-900">
                       Private lesson notes
                     </h2>

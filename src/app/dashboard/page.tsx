@@ -2,14 +2,23 @@ import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import LogoutButton from '@/components/logout-button'
-import EnrollButton from '@/components/enroll-button'
 import UserAvatar from '@/components/user-avatar'
+
+type Profile = {
+  id: string
+  email: string | null
+  full_name: string | null
+  role: string | null
+  avatar_url: string | null
+}
 
 type Course = {
   id: number
   title: string
   slug: string
   description: string | null
+  is_free: boolean | null
+  is_published: boolean | null
 }
 
 type Lesson = {
@@ -18,22 +27,16 @@ type Lesson = {
   title: string
   slug: string
   position: number
+  is_published: boolean | null
 }
 
-type Progress = {
+type Enrollment = {
+  course_id: number
+}
+
+type ProgressRow = {
   lesson_id: number
-  completed: boolean
-}
-
-type CourseCard = {
-  id: number
-  title: string
-  slug: string
-  description: string | null
-  totalLessons: number
-  completedLessons: number
-  progress: number
-  nextLesson: Lesson | null
+  completed: boolean | null
 }
 
 export default async function DashboardPage() {
@@ -44,55 +47,71 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect('/login')
+    redirect('/login?next=/dashboard')
   }
 
-  const { data: profile } = await supabase
+  const { data: profileData } = await supabase
     .from('profiles')
-    .select('full_name, email, role, avatar_url')
+    .select('id, email, full_name, role, avatar_url')
     .eq('id', user.id)
     .maybeSingle()
 
-  const isAdmin = profile?.role === 'admin'
-  const isTeacher = profile?.role === 'teacher'
-  const canAccessTeacherHub = isTeacher || isAdmin
+  const profile = profileData as Profile | null
 
-  const { data: allCoursesData } = await supabase
-    .from('courses')
-    .select('id, title, slug, description')
-    .eq('is_published', true)
-    .eq('is_free', true)
-    .order('created_at', { ascending: false })
+  const displayName =
+    profile?.full_name || profile?.email || user.email || 'Student'
 
-  const allCourses = (allCoursesData ?? []) as Course[]
+  const role = profile?.role || 'student'
+  const isAdmin = role === 'admin'
+  const isTeacher = role === 'teacher' || role === 'admin'
 
   const { data: enrollmentsData } = await supabase
     .from('enrollments')
     .select('course_id')
     .eq('user_id', user.id)
 
-  const enrolledCourseIds = new Set(
-    (enrollmentsData ?? []).map((row) => row.course_id as number)
+  const enrollments = (enrollmentsData ?? []) as Enrollment[]
+  const enrolledCourseIds = enrollments.map((item) => item.course_id)
+
+  let enrolledCourses: Course[] = []
+
+  if (enrolledCourseIds.length > 0) {
+    const { data: enrolledCoursesData } = await supabase
+      .from('courses')
+      .select('id, title, slug, description, is_free, is_published')
+      .in('id', enrolledCourseIds)
+      .order('title', { ascending: true })
+
+    enrolledCourses = (enrolledCoursesData ?? []) as Course[]
+  }
+
+  const { data: availableCoursesData } = await supabase
+    .from('courses')
+    .select('id, title, slug, description, is_free, is_published')
+    .eq('is_published', true)
+    .eq('is_free', true)
+    .order('title', { ascending: true })
+
+  const availableCourses = ((availableCoursesData ?? []) as Course[]).filter(
+    (course) => !enrolledCourseIds.includes(course.id)
   )
 
-  const myCourses = allCourses.filter((course) =>
-    enrolledCourseIds.has(course.id)
-  )
-
-  const availableCourses = allCourses.filter(
-    (course) => !enrolledCourseIds.has(course.id)
-  )
-
-  const myCourseIds = myCourses.map((course) => course.id)
+  const allVisibleCourseIds = [
+    ...new Set([
+      ...enrolledCourses.map((course) => course.id),
+      ...availableCourses.map((course) => course.id),
+    ]),
+  ]
 
   let lessons: Lesson[] = []
 
-  if (myCourseIds.length > 0) {
+  if (allVisibleCourseIds.length > 0) {
     const { data: lessonsData } = await supabase
       .from('lessons')
-      .select('id, course_id, title, slug, position')
-      .in('course_id', myCourseIds)
+      .select('id, course_id, title, slug, position, is_published')
+      .in('course_id', allVisibleCourseIds)
       .eq('is_published', true)
+      .order('course_id', { ascending: true })
       .order('position', { ascending: true })
 
     lessons = (lessonsData ?? []) as Lesson[]
@@ -100,7 +119,7 @@ export default async function DashboardPage() {
 
   const lessonIds = lessons.map((lesson) => lesson.id)
 
-  let progressRows: Progress[] = []
+  let progressRows: ProgressRow[] = []
 
   if (lessonIds.length > 0) {
     const { data: progressData } = await supabase
@@ -109,67 +128,71 @@ export default async function DashboardPage() {
       .eq('user_id', user.id)
       .in('lesson_id', lessonIds)
 
-    progressRows = (progressData ?? []) as Progress[]
+    progressRows = (progressData ?? []) as ProgressRow[]
   }
 
   const completedLessonIds = new Set(
-    progressRows.filter((row) => row.completed).map((row) => row.lesson_id)
+    progressRows
+      .filter((row) => row.completed)
+      .map((row) => row.lesson_id)
   )
 
-  const myCourseCards: CourseCard[] = myCourses.map((course) => {
-    const courseLessons = lessons
-      .filter((lesson) => lesson.course_id === course.id)
-      .sort((a, b) => a.position - b.position)
+  function getCourseLessons(courseId: number) {
+    return lessons.filter((lesson) => lesson.course_id === courseId)
+  }
+
+  function getCourseProgress(courseId: number) {
+    const courseLessons = getCourseLessons(courseId)
+    const totalLessons = courseLessons.length
+
+    if (totalLessons === 0) {
+      return {
+        totalLessons: 0,
+        completedLessons: 0,
+        percentage: 0,
+        firstLessonSlug: null as string | null,
+        nextLessonSlug: null as string | null,
+      }
+    }
 
     const completedLessons = courseLessons.filter((lesson) =>
       completedLessonIds.has(lesson.id)
     ).length
 
-    const totalLessons = courseLessons.length
+    const percentage = Math.round((completedLessons / totalLessons) * 100)
 
-    const progress =
-      totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
+    const firstLessonSlug = courseLessons[0]?.slug ?? null
 
-    const nextLesson =
-      courseLessons.find((lesson) => !completedLessonIds.has(lesson.id)) ?? null
+    const nextIncompleteLesson =
+      courseLessons.find((lesson) => !completedLessonIds.has(lesson.id)) ??
+      courseLessons[0]
 
     return {
-      id: course.id,
-      title: course.title,
-      slug: course.slug,
-      description: course.description,
       totalLessons,
       completedLessons,
-      progress,
-      nextLesson,
+      percentage,
+      firstLessonSlug,
+      nextLessonSlug: nextIncompleteLesson?.slug ?? null,
     }
-  })
+  }
 
-  const continueCourse =
-    myCourseCards.find(
-      (course) =>
-        course.nextLesson && course.completedLessons > 0 && course.progress < 100
-    ) ??
-    myCourseCards.find((course) => course.nextLesson) ??
-    null
+  const totalEnrolledLessons = enrolledCourses.reduce((total, course) => {
+    return total + getCourseProgress(course.id).totalLessons
+  }, 0)
 
-  const totalLessons = lessons.length
-  const totalCompletedLessons = Array.from(completedLessonIds).length
+  const totalCompletedLessons = enrolledCourses.reduce((total, course) => {
+    return total + getCourseProgress(course.id).completedLessons
+  }, 0)
 
   const overallProgress =
-    totalLessons > 0
-      ? Math.round((totalCompletedLessons / totalLessons) * 100)
+    totalEnrolledLessons > 0
+      ? Math.round((totalCompletedLessons / totalEnrolledLessons) * 100)
       : 0
-
-  const displayName =
-    profile?.full_name ||
-    user.email?.split('@')[0]?.replace(/[._-]/g, ' ') ||
-    'Student'
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
-      <section className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
+      <header className="border-b border-slate-200 bg-white">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-4">
           <div className="flex items-center gap-4">
             <UserAvatar
               src={profile?.avatar_url}
@@ -180,253 +203,307 @@ export default async function DashboardPage() {
 
             <div>
               <p className="text-sm font-medium text-slate-500">
-                Student Dashboard
+                {isAdmin
+                  ? 'Admin Dashboard'
+                  : role === 'teacher'
+                    ? 'Teacher Dashboard'
+                    : 'Student Dashboard'}
               </p>
+
               <h1 className="text-2xl font-bold">
                 Welcome back,{' '}
                 <span className="text-blue-600">{displayName}</span>
               </h1>
+
+              <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
+                {role}
+              </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Link
-              href="/profile"
-              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-            >
-              My Profile
-            </Link>
-
-            {canAccessTeacherHub && (
-              <Link
-                href="/teacher"
-                className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-              >
-                Teacher Hub
-              </Link>
-            )}
-
             {isAdmin && (
               <Link
                 href="/admin"
-                className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-800"
               >
                 Admin Panel
               </Link>
             )}
 
+            {isTeacher && (
+              <Link
+                href="/teacher"
+                className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+              >
+                Teacher Hub
+              </Link>
+            )}
+
+            <Link
+              href="/profile"
+              className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+            >
+              My Profile
+            </Link>
+
             <LogoutButton />
           </div>
         </div>
-      </section>
+      </header>
 
-      <section className="border-b border-slate-200 bg-gradient-to-r from-slate-900 to-blue-900 text-white">
-        <div className="mx-auto grid max-w-6xl gap-6 px-6 py-10 md:grid-cols-[1.5fr_1fr]">
+      <section className="bg-gradient-to-br from-slate-950 via-blue-950 to-blue-800 text-white">
+        <div className="mx-auto grid max-w-7xl gap-8 px-6 py-12 lg:grid-cols-[1fr_430px] lg:items-center">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-200">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-blue-200">
               Torres Academy
             </p>
 
-            <h2 className="mt-3 text-3xl font-bold">
+            <h2 className="mt-4 max-w-3xl text-4xl font-bold tracking-tight md:text-5xl">
               Your learning space is ready.
             </h2>
 
-            <p className="mt-4 max-w-2xl text-slate-200">
-              Enroll in free courses, continue your lessons, and track your
-              progress in one place.
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-blue-50">
+              Enroll in free courses, continue your lessons, complete quizzes,
+              save notes, request feedback, and track your progress in one place.
             </p>
 
-            <div className="mt-6 flex flex-wrap gap-4">
-              {continueCourse?.nextLesson ? (
-                <Link
-                  href={`/lessons/${continueCourse.nextLesson.slug}`}
-                  className="rounded-xl bg-white px-5 py-3 font-semibold text-slate-900 transition hover:bg-slate-100"
-                >
-                  Continue learning
-                </Link>
-              ) : (
-                <Link
-                  href="#available-courses"
-                  className="rounded-xl bg-white px-5 py-3 font-semibold text-slate-900 transition hover:bg-slate-100"
-                >
-                  Explore courses
-                </Link>
-              )}
+            <div className="mt-8 flex flex-wrap gap-4">
+              <Link
+                href="#available-courses"
+                className="rounded-xl bg-white px-5 py-3 font-semibold text-slate-950 transition hover:bg-blue-50"
+              >
+                Explore courses
+              </Link>
 
               <Link
                 href="/profile"
-                className="rounded-xl border border-white/25 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+                className="rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
               >
                 Edit profile
               </Link>
 
-              {canAccessTeacherHub && (
+              {isAdmin && (
+                <Link
+                  href="/admin"
+                  className="rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+                >
+                  Open Admin Panel
+                </Link>
+              )}
+
+              {isTeacher && (
                 <Link
                   href="/teacher"
-                  className="rounded-xl border border-white/25 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+                  className="rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
                 >
-                  Go to Teacher Hub
+                  Open Teacher Hub
                 </Link>
               )}
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/10 bg-white/10 p-6 backdrop-blur">
-            <p className="text-sm font-semibold text-blue-100">Your progress</p>
+          <div className="rounded-3xl border border-white/15 bg-white/10 p-6 shadow-sm backdrop-blur">
+            <p className="font-bold text-blue-100">Your progress</p>
 
-            <div className="mt-4">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-slate-200">Completed lessons</span>
-                <span className="font-semibold text-white">
-                  {totalCompletedLessons}/{totalLessons}
+            <div className="mt-6">
+              <div className="flex items-center justify-between text-sm text-blue-50">
+                <span>Completed lessons</span>
+                <span>
+                  {totalCompletedLessons}/{totalEnrolledLessons}
                 </span>
               </div>
 
-              <div className="mt-2 h-3 overflow-hidden rounded-full bg-white/15">
+              <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/20">
                 <div
-                  className="h-full rounded-full bg-blue-400"
+                  className="h-full rounded-full bg-blue-300"
                   style={{ width: `${overallProgress}%` }}
                 />
               </div>
             </div>
 
-            <div className="mt-6 grid grid-cols-2 gap-4">
-              <div className="rounded-2xl bg-white/10 p-4">
-                <p className="text-2xl font-bold">{myCourseCards.length}</p>
-                <p className="mt-1 text-sm text-slate-200">My courses</p>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-2xl bg-white/10 p-5">
+                <p className="text-3xl font-bold">{enrolledCourses.length}</p>
+                <p className="mt-2 text-sm text-blue-50">My courses</p>
               </div>
 
-              <div className="rounded-2xl bg-white/10 p-4">
-                <p className="text-2xl font-bold">{availableCourses.length}</p>
-                <p className="mt-1 text-sm text-slate-200">Available</p>
+              <div className="rounded-2xl bg-white/10 p-5">
+                <p className="text-3xl font-bold">{availableCourses.length}</p>
+                <p className="mt-2 text-sm text-blue-50">Available</p>
               </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section>
-        <div className="mx-auto max-w-6xl px-6 py-10">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">My Courses</h2>
+      <div className="mx-auto max-w-7xl space-y-12 px-6 py-12">
+        <section>
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+                My Courses
+              </p>
+
+              <h2 className="mt-2 text-3xl font-bold text-slate-900">
+                Continue learning
+              </h2>
+            </div>
+
             <p className="text-sm text-slate-600">
-              Courses you already enrolled in
+              Courses you are already enrolled in
             </p>
           </div>
 
-          {myCourseCards.length === 0 ? (
+          {enrolledCourses.length === 0 ? (
             <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-slate-700">
-                You have not enrolled in any course yet.
+              <h3 className="text-xl font-bold text-slate-900">
+                No enrolled courses yet
+              </h3>
+
+              <p className="mt-2 text-slate-600">
+                Choose a free course below to start learning.
               </p>
             </div>
           ) : (
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
-              {myCourseCards.map((course) => (
-                <article
-                  key={course.id}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-slate-900">
-                        {course.title}
-                      </h3>
-                      <p className="mt-2 text-slate-700">
-                        {course.description || 'No description yet.'}
-                      </p>
-                    </div>
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              {enrolledCourses.map((course) => {
+                const progress = getCourseProgress(course.id)
 
-                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                      {course.progress}%
-                    </span>
-                  </div>
+                return (
+                  <article
+                    key={course.id}
+                    className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-900">
+                          {course.title}
+                        </h3>
 
-                  <div className="mt-5">
-                    <div className="flex items-center justify-between text-sm text-slate-600">
-                      <span>
-                        {course.completedLessons} of {course.totalLessons}{' '}
-                        lessons completed
+                        <p className="mt-3 leading-7 text-slate-600">
+                          {course.description || 'No description yet.'}
+                        </p>
+                      </div>
+
+                      <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
+                        {progress.percentage}%
                       </span>
-                      <span>{course.progress}%</span>
                     </div>
 
-                    <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-200">
-                      <div
-                        className="h-full rounded-full bg-blue-600"
-                        style={{ width: `${course.progress}%` }}
-                      />
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between text-sm text-slate-600">
+                        <span>
+                          {progress.completedLessons} of{' '}
+                          {progress.totalLessons} lessons completed
+                        </span>
+                        <span>{progress.percentage}%</span>
+                      </div>
+
+                      <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-200">
+                        <div
+                          className="h-full rounded-full bg-blue-600"
+                          style={{ width: `${progress.percentage}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
 
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <Link
-                      href={`/courses/${course.slug}`}
-                      className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-                    >
-                      View course
-                    </Link>
+                    <div className="mt-6 flex flex-wrap gap-3">
+                      {progress.nextLessonSlug ? (
+                        <Link
+                          href={`/lessons/${progress.nextLessonSlug}`}
+                          className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+                        >
+                          Continue course
+                        </Link>
+                      ) : (
+                        <Link
+                          href={`/courses/${course.slug}`}
+                          className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+                        >
+                          View course
+                        </Link>
+                      )}
 
-                    {course.nextLesson && (
                       <Link
-                        href={`/lessons/${course.nextLesson.slug}`}
-                        className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700"
+                        href={`/courses/${course.slug}`}
+                        className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
                       >
-                        {course.completedLessons > 0 ? 'Continue' : 'Start'}
+                        Course overview
                       </Link>
-                    )}
-                  </div>
-                </article>
-              ))}
+                    </div>
+                  </article>
+                )
+              })}
             </div>
           )}
-        </div>
-      </section>
+        </section>
 
-      <section id="available-courses" className="pb-12">
-        <div className="mx-auto max-w-6xl px-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl font-bold">Available Courses</h2>
-            <p className="text-sm text-slate-600">
-              Free published courses students can join
-            </p>
+        <section id="available-courses">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+                Available Courses
+              </p>
+
+              <h2 className="mt-2 text-3xl font-bold text-slate-900">
+                Free courses you can join
+              </h2>
+            </div>
           </div>
 
           {availableCourses.length === 0 ? (
             <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-slate-700">No available courses right now.</p>
+              <p className="text-slate-700">
+                No new free courses are available right now.
+              </p>
             </div>
           ) : (
-            <div className="mt-6 grid gap-6 md:grid-cols-2">
-              {availableCourses.map((course) => (
-                <article
-                  key={course.id}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                >
-                  <h3 className="text-xl font-bold text-slate-900">
-                    {course.title}
-                  </h3>
+            <div className="mt-6 grid gap-6 lg:grid-cols-2">
+              {availableCourses.map((course) => {
+                const courseLessons = getCourseLessons(course.id)
 
-                  <p className="mt-2 text-slate-700">
-                    {course.description || 'No description yet.'}
-                  </p>
+                return (
+                  <article
+                    key={course.id}
+                    className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-4">
+                      <div>
+                        <h3 className="text-2xl font-bold text-slate-900">
+                          {course.title}
+                        </h3>
 
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    <Link
-                      href={`/courses/${course.slug}`}
-                      className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-                    >
-                      View details
-                    </Link>
+                        <p className="mt-3 leading-7 text-slate-600">
+                          {course.description || 'No description yet.'}
+                        </p>
+                      </div>
 
-                    <EnrollButton courseId={course.id} />
-                  </div>
-                </article>
-              ))}
+                      <span className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
+                        Free
+                      </span>
+                    </div>
+
+                    <p className="mt-5 text-sm text-slate-600">
+                      {courseLessons.length} published lesson
+                      {courseLessons.length === 1 ? '' : 's'}
+                    </p>
+
+                    <div className="mt-6 flex flex-wrap gap-3">
+                      <Link
+                        href={`/courses/${course.slug}`}
+                        className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+                      >
+                        View course
+                      </Link>
+                    </div>
+                  </article>
+                )
+              })}
             </div>
           )}
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   )
 }
