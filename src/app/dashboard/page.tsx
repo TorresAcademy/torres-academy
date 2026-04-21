@@ -39,6 +39,14 @@ type ProgressRow = {
   completed: boolean | null
 }
 
+type Certificate = {
+  id: number
+  course_id: number
+  verification_code: string
+  status: string
+  issued_at: string
+}
+
 export default async function DashboardPage() {
   const supabase = await createClient()
 
@@ -131,11 +139,38 @@ export default async function DashboardPage() {
     progressRows = (progressData ?? []) as ProgressRow[]
   }
 
+  let certificates: Certificate[] = []
+
+  if (enrolledCourseIds.length > 0) {
+    const { data: certificatesData } = await supabase
+      .from('certificates')
+      .select('id, course_id, verification_code, status, issued_at')
+      .eq('user_id', user.id)
+      .in('course_id', enrolledCourseIds)
+
+    certificates = (certificatesData ?? []) as Certificate[]
+  }
+
   const completedLessonIds = new Set(
     progressRows
       .filter((row) => row.completed)
       .map((row) => row.lesson_id)
   )
+
+  const issuedCertificateCourseIds = new Set(
+    certificates
+      .filter((certificate) => certificate.status === 'issued')
+      .map((certificate) => certificate.course_id)
+  )
+
+  function getCourseCertificate(courseId: number) {
+    return (
+      certificates.find(
+        (certificate) =>
+          certificate.course_id === courseId && certificate.status === 'issued'
+      ) ?? null
+    )
+  }
 
   function getCourseLessons(courseId: number) {
     return lessons.filter((lesson) => lesson.course_id === courseId)
@@ -152,6 +187,7 @@ export default async function DashboardPage() {
         percentage: 0,
         firstLessonSlug: null as string | null,
         nextLessonSlug: null as string | null,
+        isComplete: false,
       }
     }
 
@@ -173,6 +209,7 @@ export default async function DashboardPage() {
       percentage,
       firstLessonSlug,
       nextLessonSlug: nextIncompleteLesson?.slug ?? null,
+      isComplete: percentage === 100,
     }
   }
 
@@ -188,6 +225,12 @@ export default async function DashboardPage() {
     totalEnrolledLessons > 0
       ? Math.round((totalCompletedLessons / totalEnrolledLessons) * 100)
       : 0
+
+  const completedCoursesCount = enrolledCourses.filter(
+    (course) => getCourseProgress(course.id).isComplete
+  ).length
+
+  const issuedCertificatesCount = issuedCertificateCourseIds.size
 
   return (
     <main className="min-h-screen bg-slate-50 text-slate-900">
@@ -241,6 +284,13 @@ export default async function DashboardPage() {
             )}
 
             <Link
+              href="/certificates"
+              className="rounded-xl border border-blue-300 bg-blue-50 px-5 py-3 font-semibold text-blue-700 transition hover:bg-blue-100"
+            >
+              Certificates
+            </Link>
+
+            <Link
               href="/profile"
               className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
             >
@@ -265,7 +315,8 @@ export default async function DashboardPage() {
 
             <p className="mt-5 max-w-2xl text-lg leading-8 text-blue-50">
               Enroll in free courses, continue your lessons, complete quizzes,
-              save notes, request feedback, and track your progress in one place.
+              save notes, request feedback, claim certificates, and track your
+              progress in one place.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
@@ -274,6 +325,13 @@ export default async function DashboardPage() {
                 className="rounded-xl bg-white px-5 py-3 font-semibold text-slate-950 transition hover:bg-blue-50"
               >
                 Explore courses
+              </Link>
+
+              <Link
+                href="/certificates"
+                className="rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+              >
+                My certificates
               </Link>
 
               <Link
@@ -329,6 +387,16 @@ export default async function DashboardPage() {
               </div>
 
               <div className="rounded-2xl bg-white/10 p-5">
+                <p className="text-3xl font-bold">{completedCoursesCount}</p>
+                <p className="mt-2 text-sm text-blue-50">Completed courses</p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-5">
+                <p className="text-3xl font-bold">{issuedCertificatesCount}</p>
+                <p className="mt-2 text-sm text-blue-50">Certificates</p>
+              </div>
+
+              <div className="rounded-2xl bg-white/10 p-5">
                 <p className="text-3xl font-bold">{availableCourses.length}</p>
                 <p className="mt-2 text-sm text-blue-50">Available</p>
               </div>
@@ -369,6 +437,7 @@ export default async function DashboardPage() {
             <div className="mt-6 grid gap-6 lg:grid-cols-2">
               {enrolledCourses.map((course) => {
                 const progress = getCourseProgress(course.id)
+                const certificate = getCourseCertificate(course.id)
 
                 return (
                   <article
@@ -386,8 +455,16 @@ export default async function DashboardPage() {
                         </p>
                       </div>
 
-                      <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700">
-                        {progress.percentage}%
+                      <span
+                        className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                          progress.isComplete
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-blue-100 text-blue-700'
+                        }`}
+                      >
+                        {progress.isComplete
+                          ? 'Completed'
+                          : `${progress.percentage}%`}
                       </span>
                     </div>
 
@@ -408,8 +485,29 @@ export default async function DashboardPage() {
                       </div>
                     </div>
 
+                    {progress.isComplete && (
+                      <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5">
+                        <h4 className="font-bold text-green-800">
+                          Course completed
+                        </h4>
+
+                        <p className="mt-2 text-sm leading-6 text-slate-700">
+                          You finished all published lessons. Go to the
+                          certificate center to claim or download your
+                          certificate.
+                        </p>
+
+                        {certificate && (
+                          <p className="mt-2 text-xs font-semibold text-green-700">
+                            Certificate issued · Code:{' '}
+                            {certificate.verification_code}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     <div className="mt-6 flex flex-wrap gap-3">
-                      {progress.nextLessonSlug ? (
+                      {progress.nextLessonSlug && !progress.isComplete ? (
                         <Link
                           href={`/lessons/${progress.nextLessonSlug}`}
                           className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
@@ -431,6 +529,21 @@ export default async function DashboardPage() {
                       >
                         Course overview
                       </Link>
+
+                      {progress.isComplete && (
+                        <Link
+                          href={
+                            certificate
+                              ? `/certificates/${certificate.id}`
+                              : '/certificates'
+                          }
+                          className="rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700"
+                        >
+                          {certificate
+                            ? 'Download certificate'
+                            : 'Claim certificate'}
+                        </Link>
+                      )}
                     </div>
                   </article>
                 )
