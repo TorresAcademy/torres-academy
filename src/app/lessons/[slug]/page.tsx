@@ -1,6 +1,7 @@
 import { notFound, redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import StudentLessonExperience from '@/components/lesson/student-lesson-experience'
 
 type LessonPageProps = {
@@ -59,7 +60,9 @@ export default async function LessonPage({ params }: LessonPageProps) {
 
   let lessonQuery = supabase
     .from('lessons')
-    .select('id, title, slug, content, position, course_id, is_published')
+    .select(
+      'id, title, slug, content, position, course_id, is_published, media_path, media_type, media_original_name, media_mime_type'
+    )
     .eq('slug', slug)
 
   if (!canBypassEnrollment) {
@@ -237,6 +240,18 @@ export default async function LessonPage({ params }: LessonPageProps) {
     finalQuizzes.length === 0 ||
     finalQuizzes.every((quiz) => passedQuizIds.has(quiz.id))
 
+  let mediaSignedUrl: string | null = null
+
+  if (lesson.media_path) {
+    const serviceSupabase = createServiceRoleClient()
+
+    const { data } = await serviceSupabase.storage
+      .from('lesson-media')
+      .createSignedUrl(lesson.media_path, 60 * 30)
+
+    mediaSignedUrl = data?.signedUrl ?? null
+  }
+
   const lessonId = lesson.id
   const courseSlug = course.slug
   const nextLessonSlug = nextLesson?.slug ?? null
@@ -339,6 +354,12 @@ export default async function LessonPage({ params }: LessonPageProps) {
       quizzes={quizzes}
       quizAttempts={quizAttempts}
       finalQuizPassed={finalQuizPassed}
+      media={{
+        url: mediaSignedUrl,
+        type: lesson.media_type,
+        mimeType: lesson.media_mime_type,
+        originalName: lesson.media_original_name,
+      }}
       completeAction={completeAction}
     />
   )

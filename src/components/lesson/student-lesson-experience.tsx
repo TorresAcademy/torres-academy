@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import LessonQuizCard from '@/components/lesson/lesson-quiz-card'
 import FeedbackRequestCard from '@/components/lesson/feedback-request-card'
+import ProtectedLessonMedia from '@/components/lesson/protected-lesson-media'
 
 type LessonNavigationItem = {
   id: number
@@ -62,6 +63,13 @@ type FeedbackRequest = {
   reviewed_at: string | null
 }
 
+type LessonMedia = {
+  url: string | null
+  type: string | null
+  mimeType: string | null
+  originalName: string | null
+}
+
 type StudentLessonExperienceProps = {
   userId: string
   course: {
@@ -93,6 +101,7 @@ type StudentLessonExperienceProps = {
   quizzes: Quiz[]
   quizAttempts: QuizAttempt[]
   finalQuizPassed: boolean
+  media: LessonMedia
   completeAction: () => Promise<void>
 }
 
@@ -120,6 +129,7 @@ export default function StudentLessonExperience({
   quizzes,
   quizAttempts,
   finalQuizPassed,
+  media,
   completeAction,
 }: StudentLessonExperienceProps) {
   const supabase = createClient()
@@ -343,8 +353,8 @@ export default function StudentLessonExperience({
                           item.completed
                             ? 'bg-green-100 text-green-700'
                             : item.current
-                            ? 'bg-blue-100 text-blue-700'
-                            : 'bg-slate-100 text-slate-600'
+                              ? 'bg-blue-100 text-blue-700'
+                              : 'bg-slate-100 text-slate-600'
                         }`}
                       >
                         {item.completed ? '✓' : item.position}
@@ -388,24 +398,7 @@ export default function StudentLessonExperience({
                 )}
               </div>
 
-              <div className="mt-6 overflow-hidden rounded-3xl border border-slate-200 bg-slate-950">
-                <div className="aspect-video w-full">
-                  <div className="flex h-full items-center justify-center bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-8 text-center text-white">
-                    <div className="max-w-xl">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200">
-                        Media-ready lesson stage
-                      </p>
-                      <h3 className="mt-3 text-2xl font-bold">
-                        Protected lesson video / image area
-                      </h3>
-                      <p className="mt-3 text-sm leading-6 text-slate-200">
-                        This area is ready for PNG, image, or video lesson
-                        content in the media phase.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </div>
+              <ProtectedLessonMedia media={media} />
 
               <div className="mt-6 rounded-2xl bg-slate-50 p-5">
                 <h3 className="text-lg font-bold text-slate-900">

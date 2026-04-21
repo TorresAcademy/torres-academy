@@ -8,6 +8,8 @@ type Lesson = {
   slug: string
   position: number
   is_published: boolean | null
+  media_path?: string | null
+  media_type?: string | null
 }
 
 type Course = {
@@ -39,7 +41,9 @@ export default async function TeacherLessonsPage() {
   if (courseIds.length > 0) {
     const { data: lessonsData } = await supabase
       .from('lessons')
-      .select('id, course_id, title, slug, position, is_published')
+      .select(
+        'id, course_id, title, slug, position, is_published, media_path, media_type'
+      )
       .in('course_id', courseIds)
       .order('course_id', { ascending: true })
       .order('position', { ascending: true })
@@ -54,11 +58,14 @@ export default async function TeacherLessonsPage() {
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
             Lessons
           </p>
+
           <h2 className="mt-2 text-3xl font-bold text-slate-900">
             My lessons
           </h2>
+
           <p className="mt-2 text-slate-600">
-            Create lessons and build quizzes for your courses.
+            Create lessons, upload protected media, and build quizzes for your
+            courses.
           </p>
         </div>
 
@@ -94,18 +101,34 @@ export default async function TeacherLessonsPage() {
                   <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600">
                     <span>Slug: {lesson.slug}</span>
                     <span>Position: {lesson.position}</span>
+                    <span>
+                      Media:{' '}
+                      {lesson.media_path
+                        ? lesson.media_type === 'video'
+                          ? 'Video uploaded'
+                          : 'Image uploaded'
+                        : 'No media'}
+                    </span>
                   </div>
                 </div>
 
-                <span
-                  className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                    lesson.is_published
-                      ? 'bg-green-100 text-green-700'
-                      : 'bg-amber-100 text-amber-700'
-                  }`}
-                >
-                  {lesson.is_published ? 'Published' : 'Draft'}
-                </span>
+                <div className="flex flex-wrap gap-2">
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      lesson.is_published
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-amber-100 text-amber-700'
+                    }`}
+                  >
+                    {lesson.is_published ? 'Published' : 'Draft'}
+                  </span>
+
+                  {lesson.media_path && (
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                      Protected media
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="mt-5 flex flex-wrap gap-3">
@@ -114,6 +137,13 @@ export default async function TeacherLessonsPage() {
                   className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700"
                 >
                   Edit
+                </Link>
+
+                <Link
+                  href={`/teacher/lessons/${lesson.id}/media`}
+                  className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white transition hover:bg-slate-800"
+                >
+                  Media
                 </Link>
 
                 <Link
