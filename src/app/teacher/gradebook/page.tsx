@@ -1,6 +1,15 @@
 import Link from 'next/link'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 import UserAvatar from '@/components/user-avatar'
+import GradebookExportButton from '@/components/teacher/gradebook-export-button'
+
+type TeacherGradebookPageProps = {
+  searchParams: Promise<{
+    course?: string
+    risk?: string
+    q?: string
+  }>
+}
 
 type Course = {
   id: number
@@ -60,6 +69,8 @@ type FeedbackRequest = {
   status: string
 }
 
+type RiskLevel = 'Low' | 'Medium' | 'High'
+
 type GradebookRow = {
   student: Student
   course: Course
@@ -72,12 +83,12 @@ type GradebookRow = {
   failedAttempts: number
   missingReflections: number
   pendingFeedback: number
-  riskLevel: 'Low' | 'Medium' | 'High'
+  riskLevel: RiskLevel
   riskScore: number
   riskReasons: string[]
 }
 
-function getRiskBadgeClass(riskLevel: 'Low' | 'Medium' | 'High') {
+function getRiskBadgeClass(riskLevel: RiskLevel) {
   if (riskLevel === 'High') {
     return 'bg-red-100 text-red-700'
   }
@@ -89,7 +100,7 @@ function getRiskBadgeClass(riskLevel: 'Low' | 'Medium' | 'High') {
   return 'bg-green-100 text-green-700'
 }
 
-function getRiskCardClass(riskLevel: 'Low' | 'Medium' | 'High') {
+function getRiskCardClass(riskLevel: RiskLevel) {
   if (riskLevel === 'High') {
     return 'border-red-200 bg-red-50'
   }
@@ -186,7 +197,19 @@ function calculateRisk(input: {
   }
 }
 
-export default async function TeacherGradebookPage() {
+function normalizeSearch(value: string) {
+  return value.trim().toLowerCase()
+}
+
+export default async function TeacherGradebookPage({
+  searchParams,
+}: TeacherGradebookPageProps) {
+  const params = await searchParams
+
+  const selectedCourse = params.course || 'all'
+  const selectedRisk = params.risk || 'all'
+  const searchQuery = params.q || ''
+
   const { supabase, user, profile } = await requireTeacherOrAdmin()
   const isAdmin = profile.role === 'admin'
 
@@ -302,15 +325,6 @@ export default async function TeacherGradebookPage() {
     )
   }
 
-  const quizByLessonId = new Map<number, Quiz[]>()
-
-  for (const lesson of lessons) {
-    quizByLessonId.set(
-      lesson.id,
-      quizzes.filter((quiz) => quiz.lesson_id === lesson.id)
-    )
-  }
-
   const gradebookRows: GradebookRow[] = []
 
   for (const enrollment of enrollments) {
@@ -350,10 +364,7 @@ export default async function TeacherGradebookPage() {
     for (const attempt of studentAttempts) {
       const currentBest = bestScoreByQuiz.get(attempt.quiz_id)
 
-      if (
-        currentBest === undefined ||
-        attempt.score_percentage > currentBest
-      ) {
+      if (currentBest === undefined || attempt.score_percentage > currentBest) {
         bestScoreByQuiz.set(attempt.quiz_id, attempt.score_percentage)
       }
     }
@@ -445,6 +456,30 @@ export default async function TeacherGradebookPage() {
     return a.progressPercentage - b.progressPercentage
   })
 
+  const filteredRows = gradebookRows.filter((row) => {
+    const matchesCourse =
+      selectedCourse === 'all' || String(row.course.id) === selectedCourse
+
+    const matchesRisk =
+      selectedRisk === 'all' || row.riskLevel === selectedRisk
+
+    const query = normalizeSearch(searchQuery)
+
+    const searchableText = normalizeSearch(
+      [
+        row.student.full_name || '',
+        row.student.email || '',
+        row.course.title,
+        row.riskLevel,
+        ...row.riskReasons,
+      ].join(' ')
+    )
+
+    const matchesSearch = !query || searchableText.includes(query)
+
+    return matchesCourse && matchesRisk && matchesSearch
+  })
+
   const highRiskCount = gradebookRows.filter(
     (row) => row.riskLevel === 'High'
   ).length
@@ -457,20 +492,38 @@ export default async function TeacherGradebookPage() {
     (row) => row.riskLevel === 'Low'
   ).length
 
-  const pendingFeedbackCount = gradebookRows.reduce(
+  const pendingFeedbackCount = filteredRows.reduce(
     (total, row) => total + row.pendingFeedback,
     0
   )
 
   const averageProgress =
-    gradebookRows.length > 0
+    filteredRows.length > 0
       ? Math.round(
-          gradebookRows.reduce(
+          filteredRows.reduce(
             (total, row) => total + row.progressPercentage,
             0
-          ) / gradebookRows.length
+          ) / filteredRows.length
         )
       : 0
+
+  const exportRows = filteredRows.map((row) => ({
+    studentName: row.student.full_name || row.student.email || 'Unnamed student',
+    studentEmail: row.student.email || '',
+    courseTitle: row.course.title,
+    progressPercentage: row.progressPercentage,
+    completedLessons: row.completedLessons,
+    totalLessons: row.totalLessons,
+    quizAverage: row.quizAverage,
+    attemptedQuizzes: row.attemptedQuizzes,
+    totalQuizzes: row.totalQuizzes,
+    failedAttempts: row.failedAttempts,
+    missingReflections: row.missingReflections,
+    pendingFeedback: row.pendingFeedback,
+    riskLevel: row.riskLevel,
+    riskScore: row.riskScore,
+    riskReasons: row.riskReasons.join('; '),
+  }))
 
   return (
     <div className="space-y-6">
@@ -484,16 +537,19 @@ export default async function TeacherGradebookPage() {
         </h2>
 
         <p className="mt-2 text-slate-600">
-          See student progress, quiz performance, missing reflections, pending
-          feedback, and risk levels in one place.
+          Filter students by course, risk level, or search terms. Export the
+          current filtered report as CSV.
         </p>
       </div>
 
       <div className="grid gap-6 md:grid-cols-5">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Students tracked</p>
+          <p className="text-sm text-slate-500">Filtered rows</p>
           <p className="mt-2 text-3xl font-bold text-slate-900">
-            {gradebookRows.length}
+            {filteredRows.length}
+          </p>
+          <p className="mt-1 text-xs text-slate-500">
+            Total: {gradebookRows.length}
           </p>
         </div>
 
@@ -526,14 +582,88 @@ export default async function TeacherGradebookPage() {
         </div>
       </div>
 
+      <form
+        action="/teacher/gradebook"
+        className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+      >
+        <div className="grid gap-4 lg:grid-cols-[1fr_220px_180px_auto_auto] lg:items-end">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Search
+            </label>
+            <input
+              name="q"
+              defaultValue={searchQuery}
+              placeholder="Search student, email, course, reason..."
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Course
+            </label>
+            <select
+              name="course"
+              defaultValue={selectedCourse}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+            >
+              <option value="all">All courses</option>
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.title}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Risk
+            </label>
+            <select
+              name="risk"
+              defaultValue={selectedRisk}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+            >
+              <option value="all">All risk</option>
+              <option value="High">High</option>
+              <option value="Medium">Medium</option>
+              <option value="Low">Low</option>
+            </select>
+          </div>
+
+          <button
+            type="submit"
+            className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+          >
+            Apply filters
+          </button>
+
+          <Link
+            href="/teacher/gradebook"
+            className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-center font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+          >
+            Clear
+          </Link>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
+          <p className="text-sm text-slate-600">
+            Export includes only the rows currently matching your filters.
+          </p>
+
+          <GradebookExportButton rows={exportRows} />
+        </div>
+      </form>
+
       {pendingFeedbackCount > 0 && (
         <div className="rounded-3xl border border-blue-200 bg-blue-50 p-5 text-sm text-slate-700">
           <span className="font-semibold text-slate-900">
             Teacher action:
           </span>{' '}
-          You have {pendingFeedbackCount} pending feedback request
-          {pendingFeedbackCount === 1 ? '' : 's'} connected to students in this
-          gradebook.
+          The filtered gradebook has {pendingFeedbackCount} pending feedback
+          request{pendingFeedbackCount === 1 ? '' : 's'}.
         </div>
       )}
 
@@ -557,9 +687,20 @@ export default async function TeacherGradebookPage() {
             Students will appear here after they enroll in your courses.
           </p>
         </div>
+      ) : filteredRows.length === 0 ? (
+        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+          <h3 className="text-xl font-bold text-slate-900">
+            No results match your filters
+          </h3>
+
+          <p className="mt-2 text-slate-600">
+            Try clearing filters or searching a different student, course, or
+            risk level.
+          </p>
+        </div>
       ) : (
         <div className="space-y-6">
-          {gradebookRows.map((row) => (
+          {filteredRows.map((row) => (
             <article
               key={`${row.course.id}-${row.student.id}`}
               className={`rounded-3xl border p-6 shadow-sm ${getRiskCardClass(
