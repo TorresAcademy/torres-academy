@@ -25,6 +25,7 @@ export default async function TeacherLayout({
               <p className="text-sm font-medium text-slate-900">
                 {profile.full_name || profile.email || 'Teacher'}
               </p>
+
               <p className="text-xs uppercase tracking-[0.16em] text-blue-700">
                 {profile.role}
               </p>
@@ -48,6 +49,13 @@ export default async function TeacherLayout({
               className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
             >
               Overview
+            </Link>
+
+            <Link
+              href="/teacher/gradebook"
+              className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+            >
+              Gradebook
             </Link>
 
             <Link
