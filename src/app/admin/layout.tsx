@@ -77,6 +77,12 @@ export default async function AdminLayout({
             >
               Users
             </Link>
+            <Link
+              href="/admin/certificates"
+              className="block rounded-xl px-4 py-3 font-medium text-slate-700 hover:bg-slate-50 hover:text-blue-600"
+            >
+              Certificates
+            </Link>
 
             <Link
               href="/dashboard"
