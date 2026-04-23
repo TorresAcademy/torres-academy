@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import LessonQuizCard from '@/components/lesson/lesson-quiz-card'
 import FeedbackRequestCard from '@/components/lesson/feedback-request-card'
 import ProtectedLessonMedia from '@/components/lesson/protected-lesson-media'
+import { LessonSubmissionPanel } from '@/components/lesson/lesson-submission-panel'
 
 type LessonNavigationItem = {
   id: number
@@ -641,6 +642,10 @@ export default function StudentLessonExperience({
                     ))}
                   </div>
                 )}
+              </div>
+
+              <div className="mt-6">
+                <LessonSubmissionPanel lessonId={lesson.id} />
               </div>
 
               <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">

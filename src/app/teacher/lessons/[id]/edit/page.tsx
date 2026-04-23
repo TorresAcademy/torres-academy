@@ -391,6 +391,12 @@ export default async function TeacherEditLessonPage({
               >
                 Quiz Builder
               </Link>
+              <Link
+                href={`/teacher/lessons/${lesson.id}/submissions`}
+                className="rounded-xl bg-emerald-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-emerald-700"
+              >
+                Submission tasks
+              </Link>
 
               <Link
                 href={`/lessons/${lesson.slug}`}
