@@ -85,6 +85,18 @@ type FeedbackRequest = {
   reviewed_at: string | null
 }
 
+type Certificate = {
+  id: number
+  user_id: string
+  course_id: number
+  verification_code: string
+  status: string
+  issued_at: string | null
+  revoked_at: string | null
+}
+
+type CertificateStatus = 'Not ready' | 'Ready' | 'Issued' | 'Revoked'
+
 function formatDate(value: string | null) {
   if (!value) return '—'
 
@@ -95,6 +107,13 @@ function getRiskBadgeClass(riskLevel: 'Low' | 'Medium' | 'High') {
   if (riskLevel === 'High') return 'bg-red-100 text-red-700'
   if (riskLevel === 'Medium') return 'bg-amber-100 text-amber-700'
   return 'bg-green-100 text-green-700'
+}
+
+function getCertificateBadgeClass(status: CertificateStatus) {
+  if (status === 'Issued') return 'bg-green-100 text-green-700'
+  if (status === 'Ready') return 'bg-blue-100 text-blue-700'
+  if (status === 'Revoked') return 'bg-red-100 text-red-700'
+  return 'bg-slate-100 text-slate-700'
 }
 
 function calculateRisk(input: {
@@ -240,6 +259,7 @@ export default async function TeacherStudentReportPage({
   let quizAttempts: QuizAttempt[] = []
   let reflections: Reflection[] = []
   let feedbackRequests: FeedbackRequest[] = []
+  let certificates: Certificate[] = []
 
   if (courseIds.length > 0) {
     const { data: lessonsData } = await supabase
@@ -253,6 +273,16 @@ export default async function TeacherStudentReportPage({
     lessons = (lessonsData ?? []) as Lesson[]
 
     const lessonIds = lessons.map((lesson) => lesson.id)
+
+    const { data: certificatesData } = await supabase
+      .from('certificates')
+      .select(
+        'id, user_id, course_id, verification_code, status, issued_at, revoked_at'
+      )
+      .eq('user_id', studentId)
+      .in('course_id', courseIds)
+
+    certificates = (certificatesData ?? []) as Certificate[]
 
     if (lessonIds.length > 0) {
       const { data: progressData } = await supabase
@@ -361,6 +391,10 @@ export default async function TeacherStudentReportPage({
     (request) => request.status === 'pending'
   ).length
 
+  const issuedCertificates = certificates.filter(
+    (certificate) => certificate.status === 'issued'
+  ).length
+
   const risk = calculateRisk({
     progressPercentage,
     quizAverage,
@@ -405,6 +439,68 @@ export default async function TeacherStudentReportPage({
     return completedLessonIds.has(lessonId) ? 'Completed' : 'Not completed'
   }
 
+  function getCourseCertificate(courseId: number) {
+    return (
+      certificates.find((certificate) => certificate.course_id === courseId) ??
+      null
+    )
+  }
+
+  function getCourseCertificateStatus(courseLessons: Lesson[]) {
+    const courseLessonIds = courseLessons.map((lesson) => lesson.id)
+
+    const courseCertificate =
+      certificates.find((certificate) =>
+        courseLessonIds.length > 0
+          ? certificate.course_id === courseLessons[0]?.course_id
+          : false
+      ) ?? null
+
+    const courseCompletedLessons = courseLessons.filter((lesson) =>
+      completedLessonIds.has(lesson.id)
+    ).length
+
+    const courseReflectionsSubmitted = courseLessons.filter((lesson) =>
+      reflectedLessonIds.has(lesson.id)
+    ).length
+
+    const courseFinalQuizzes = quizzes.filter(
+      (quiz) =>
+        courseLessonIds.includes(quiz.lesson_id) && quiz.quiz_type === 'final'
+    )
+
+    const passedFinalQuizzes = courseFinalQuizzes.filter((quiz) =>
+      quizAttempts.some(
+        (attempt) => attempt.quiz_id === quiz.id && attempt.passed
+      )
+    ).length
+
+    const ready =
+      courseLessons.length > 0 &&
+      courseCompletedLessons === courseLessons.length &&
+      courseReflectionsSubmitted === courseLessons.length &&
+      passedFinalQuizzes === courseFinalQuizzes.length
+
+    let status: CertificateStatus = 'Not ready'
+
+    if (courseCertificate?.status === 'issued') {
+      status = 'Issued'
+    } else if (courseCertificate?.status === 'revoked') {
+      status = 'Revoked'
+    } else if (ready) {
+      status = 'Ready'
+    }
+
+    return {
+      status,
+      certificate: courseCertificate,
+      courseCompletedLessons,
+      courseReflectionsSubmitted,
+      totalFinalQuizzes: courseFinalQuizzes.length,
+      passedFinalQuizzes,
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -438,7 +534,8 @@ export default async function TeacherStudentReportPage({
               </p>
 
               <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-500">
-                {student.role || 'student'} · Joined {formatDate(student.created_at)}
+                {student.role || 'student'} · Joined{' '}
+                {formatDate(student.created_at)}
               </p>
             </div>
           </div>
@@ -453,7 +550,7 @@ export default async function TeacherStudentReportPage({
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
+      <div className="grid gap-6 md:grid-cols-5">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-slate-500">Overall progress</p>
           <p className="mt-2 text-3xl font-bold text-blue-700">
@@ -489,6 +586,14 @@ export default async function TeacherStudentReportPage({
           </p>
           <p className="mt-1 text-sm text-slate-600">Pending feedback requests</p>
         </div>
+
+        <div className="rounded-3xl border border-green-200 bg-green-50 p-6 shadow-sm">
+          <p className="text-sm text-green-700">Certificates issued</p>
+          <p className="mt-2 text-3xl font-bold text-green-700">
+            {issuedCertificates}
+          </p>
+          <p className="mt-1 text-sm text-green-700">Official completions</p>
+        </div>
       </div>
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
@@ -520,7 +625,8 @@ export default async function TeacherStudentReportPage({
         <div className="space-y-8">
           {courses.map((course) => {
             const courseLessons = getCourseLessons(course.id)
-            const courseLessonIds = courseLessons.map((lesson) => lesson.id)
+            const certificateInfo = getCourseCertificateStatus(courseLessons)
+            const courseCertificate = getCourseCertificate(course.id)
 
             const courseCompletedLessons = courseLessons.filter((lesson) =>
               completedLessonIds.has(lesson.id)
@@ -553,10 +659,86 @@ export default async function TeacherStudentReportPage({
                     </p>
                   </div>
 
-                  <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-bold text-blue-700">
-                    {courseProgress}%
-                  </span>
+                  <div className="flex flex-wrap gap-2">
+                    <span
+                      className={`rounded-full px-4 py-2 text-sm font-bold ${getCertificateBadgeClass(
+                        certificateInfo.status
+                      )}`}
+                    >
+                      Certificate: {certificateInfo.status}
+                    </span>
+
+                    <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-bold text-blue-700">
+                      {courseProgress}%
+                    </span>
+                  </div>
                 </div>
+
+                <div className="mt-6 grid gap-4 md:grid-cols-4">
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-sm text-slate-500">Lessons</p>
+                    <p className="mt-2 text-2xl font-bold text-slate-900">
+                      {certificateInfo.courseCompletedLessons}/
+                      {courseLessons.length}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-sm text-slate-500">Reflections</p>
+                    <p className="mt-2 text-2xl font-bold text-slate-900">
+                      {certificateInfo.courseReflectionsSubmitted}/
+                      {courseLessons.length}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-sm text-slate-500">Final quizzes</p>
+                    <p className="mt-2 text-2xl font-bold text-slate-900">
+                      {certificateInfo.passedFinalQuizzes}/
+                      {certificateInfo.totalFinalQuizzes}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl bg-slate-50 p-4">
+                    <p className="text-sm text-slate-500">Certificate</p>
+                    <p className="mt-2 text-2xl font-bold text-slate-900">
+                      {certificateInfo.status}
+                    </p>
+                  </div>
+                </div>
+
+                {courseCertificate && (
+                  <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 p-4">
+                    <p className="font-semibold text-green-800">
+                      Certificate record
+                    </p>
+
+                    <p className="mt-2 break-all text-sm text-slate-700">
+                      Code: {courseCertificate.verification_code}
+                    </p>
+
+                    <p className="mt-1 text-sm text-slate-700">
+                      Status: {courseCertificate.status} · Issued:{' '}
+                      {formatDate(courseCertificate.issued_at)}
+                    </p>
+
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <Link
+                        href={`/certificates/${courseCertificate.id}`}
+                        className="rounded-xl bg-green-600 px-4 py-2 font-semibold text-white transition hover:bg-green-700"
+                      >
+                        Open certificate
+                      </Link>
+
+                      <Link
+                        href={`/certificates/verify/${courseCertificate.verification_code}`}
+                        className="rounded-xl border border-green-300 bg-white px-4 py-2 font-semibold text-green-700 transition hover:bg-green-50"
+                      >
+                        Verify
+                      </Link>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-6">
                   <div className="flex items-center justify-between text-sm text-slate-600">

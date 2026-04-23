@@ -69,7 +69,18 @@ type FeedbackRequest = {
   status: string
 }
 
+type Certificate = {
+  id: number
+  user_id: string
+  course_id: number
+  verification_code: string
+  status: string
+  issued_at: string | null
+  revoked_at: string | null
+}
+
 type RiskLevel = 'Low' | 'Medium' | 'High'
+type CertificateStatus = 'Not ready' | 'Ready' | 'Issued' | 'Revoked'
 
 type GradebookRow = {
   student: Student
@@ -86,30 +97,37 @@ type GradebookRow = {
   riskLevel: RiskLevel
   riskScore: number
   riskReasons: string[]
+  certificateStatus: CertificateStatus
+  certificateId: number | null
+  certificateCode: string | null
+  certificateIssuedAt: string | null
+  passedFinalQuizzes: number
+  totalFinalQuizzes: number
+}
+
+function formatDate(value: string | null) {
+  if (!value) return ''
+
+  return new Date(value).toLocaleString()
 }
 
 function getRiskBadgeClass(riskLevel: RiskLevel) {
-  if (riskLevel === 'High') {
-    return 'bg-red-100 text-red-700'
-  }
-
-  if (riskLevel === 'Medium') {
-    return 'bg-amber-100 text-amber-700'
-  }
-
+  if (riskLevel === 'High') return 'bg-red-100 text-red-700'
+  if (riskLevel === 'Medium') return 'bg-amber-100 text-amber-700'
   return 'bg-green-100 text-green-700'
 }
 
 function getRiskCardClass(riskLevel: RiskLevel) {
-  if (riskLevel === 'High') {
-    return 'border-red-200 bg-red-50'
-  }
-
-  if (riskLevel === 'Medium') {
-    return 'border-amber-200 bg-amber-50'
-  }
-
+  if (riskLevel === 'High') return 'border-red-200 bg-red-50'
+  if (riskLevel === 'Medium') return 'border-amber-200 bg-amber-50'
   return 'border-green-200 bg-green-50'
+}
+
+function getCertificateBadgeClass(status: CertificateStatus) {
+  if (status === 'Issued') return 'bg-green-100 text-green-700'
+  if (status === 'Ready') return 'bg-blue-100 text-blue-700'
+  if (status === 'Revoked') return 'bg-red-100 text-red-700'
+  return 'bg-slate-100 text-slate-700'
 }
 
 function calculateRisk(input: {
@@ -235,6 +253,7 @@ export default async function TeacherGradebookPage({
   let quizAttempts: QuizAttempt[] = []
   let reflections: Reflection[] = []
   let feedbackRequests: FeedbackRequest[] = []
+  let certificates: Certificate[] = []
 
   if (courseIds.length > 0) {
     const { data: enrollmentsData } = await supabase
@@ -253,6 +272,16 @@ export default async function TeacherGradebookPage({
         .in('id', studentIds)
 
       students = (studentsData ?? []) as Student[]
+
+      const { data: certificatesData } = await supabase
+        .from('certificates')
+        .select(
+          'id, user_id, course_id, verification_code, status, issued_at, revoked_at'
+        )
+        .in('course_id', courseIds)
+        .in('user_id', studentIds)
+
+      certificates = (certificatesData ?? []) as Certificate[]
     }
 
     const { data: lessonsData } = await supabase
@@ -414,6 +443,41 @@ export default async function TeacherGradebookPage({
         request.status === 'pending'
     ).length
 
+    const courseFinalQuizzes = courseQuizzes.filter(
+      (quiz) => quiz.quiz_type === 'final'
+    )
+
+    const totalFinalQuizzes = courseFinalQuizzes.length
+
+    const passedFinalQuizzes = courseFinalQuizzes.filter((quiz) =>
+      studentAttempts.some(
+        (attempt) => attempt.quiz_id === quiz.id && attempt.passed
+      )
+    ).length
+
+    const existingCertificate =
+      certificates.find(
+        (certificate) =>
+          certificate.user_id === student.id &&
+          certificate.course_id === course.id
+      ) ?? null
+
+    const certificateReady =
+      totalLessons > 0 &&
+      completedLessons === totalLessons &&
+      missingReflections === 0 &&
+      passedFinalQuizzes === totalFinalQuizzes
+
+    let certificateStatus: CertificateStatus = 'Not ready'
+
+    if (existingCertificate?.status === 'issued') {
+      certificateStatus = 'Issued'
+    } else if (existingCertificate?.status === 'revoked') {
+      certificateStatus = 'Revoked'
+    } else if (certificateReady) {
+      certificateStatus = 'Ready'
+    }
+
     const risk = calculateRisk({
       progressPercentage,
       quizAverage,
@@ -439,6 +503,12 @@ export default async function TeacherGradebookPage({
       riskLevel: risk.riskLevel,
       riskScore: risk.riskScore,
       riskReasons: risk.riskReasons,
+      certificateStatus,
+      certificateId: existingCertificate?.id ?? null,
+      certificateCode: existingCertificate?.verification_code ?? null,
+      certificateIssuedAt: existingCertificate?.issued_at ?? null,
+      passedFinalQuizzes,
+      totalFinalQuizzes,
     })
   }
 
@@ -471,6 +541,8 @@ export default async function TeacherGradebookPage({
         row.student.email || '',
         row.course.title,
         row.riskLevel,
+        row.certificateStatus,
+        row.certificateCode || '',
         ...row.riskReasons,
       ].join(' ')
     )
@@ -490,6 +562,14 @@ export default async function TeacherGradebookPage({
 
   const lowRiskCount = gradebookRows.filter(
     (row) => row.riskLevel === 'Low'
+  ).length
+
+  const readyCertificateCount = filteredRows.filter(
+    (row) => row.certificateStatus === 'Ready'
+  ).length
+
+  const issuedCertificateCount = filteredRows.filter(
+    (row) => row.certificateStatus === 'Issued'
   ).length
 
   const pendingFeedbackCount = filteredRows.reduce(
@@ -523,6 +603,9 @@ export default async function TeacherGradebookPage({
     riskLevel: row.riskLevel,
     riskScore: row.riskScore,
     riskReasons: row.riskReasons.join('; '),
+    certificateStatus: row.certificateStatus,
+    certificateCode: row.certificateCode || '',
+    certificateIssuedAt: formatDate(row.certificateIssuedAt),
   }))
 
   return (
@@ -537,12 +620,12 @@ export default async function TeacherGradebookPage({
         </h2>
 
         <p className="mt-2 text-slate-600">
-          Filter students by course, risk level, or search terms. Export the
-          current filtered report as CSV.
+          Filter students by course, risk level, or search terms. Certificate
+          status is now included in teacher reports and CSV exports.
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-5">
+      <div className="grid gap-6 md:grid-cols-6">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-slate-500">Filtered rows</p>
           <p className="mt-2 text-3xl font-bold text-slate-900">
@@ -575,9 +658,16 @@ export default async function TeacherGradebookPage({
         </div>
 
         <div className="rounded-3xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
-          <p className="text-sm text-blue-700">Avg progress</p>
+          <p className="text-sm text-blue-700">Certs ready</p>
           <p className="mt-2 text-3xl font-bold text-blue-700">
-            {averageProgress}%
+            {readyCertificateCount}
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-green-200 bg-green-50 p-6 shadow-sm">
+          <p className="text-sm text-green-700">Certs issued</p>
+          <p className="mt-2 text-3xl font-bold text-green-700">
+            {issuedCertificateCount}
           </p>
         </div>
       </div>
@@ -594,7 +684,7 @@ export default async function TeacherGradebookPage({
             <input
               name="q"
               defaultValue={searchQuery}
-              placeholder="Search student, email, course, reason..."
+              placeholder="Search student, email, course, reason, certificate..."
               className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
             />
           </div>
@@ -733,16 +823,26 @@ export default async function TeacherGradebookPage({
                   </div>
                 </div>
 
-                <span
-                  className={`rounded-full px-4 py-2 text-sm font-bold ${getRiskBadgeClass(
-                    row.riskLevel
-                  )}`}
-                >
-                  {row.riskLevel} risk
-                </span>
+                <div className="flex flex-wrap gap-2">
+                  <span
+                    className={`rounded-full px-4 py-2 text-sm font-bold ${getCertificateBadgeClass(
+                      row.certificateStatus
+                    )}`}
+                  >
+                    Certificate: {row.certificateStatus}
+                  </span>
+
+                  <span
+                    className={`rounded-full px-4 py-2 text-sm font-bold ${getRiskBadgeClass(
+                      row.riskLevel
+                    )}`}
+                  >
+                    {row.riskLevel} risk
+                  </span>
+                </div>
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-5">
+              <div className="mt-6 grid gap-4 md:grid-cols-6">
                 <div className="rounded-2xl bg-white/70 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Progress
@@ -812,6 +912,20 @@ export default async function TeacherGradebookPage({
                     Pending requests
                   </p>
                 </div>
+
+                <div className="rounded-2xl bg-white/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Certificate
+                  </p>
+
+                  <p className="mt-2 text-lg font-bold text-slate-900">
+                    {row.certificateStatus}
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-600">
+                    Finals: {row.passedFinalQuizzes}/{row.totalFinalQuizzes}
+                  </p>
+                </div>
               </div>
 
               <div className="mt-6">
@@ -845,6 +959,24 @@ export default async function TeacherGradebookPage({
                 >
                   Course overview
                 </Link>
+
+                {row.certificateId && (
+                  <Link
+                    href={`/certificates/${row.certificateId}`}
+                    className="rounded-xl border border-green-300 bg-white px-4 py-2 font-semibold text-green-700 transition hover:bg-green-50"
+                  >
+                    Open certificate
+                  </Link>
+                )}
+
+                {row.certificateCode && (
+                  <Link
+                    href={`/certificates/verify/${row.certificateCode}`}
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                  >
+                    Verify
+                  </Link>
+                )}
 
                 {row.pendingFeedback > 0 && (
                   <Link

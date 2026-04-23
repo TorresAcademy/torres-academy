@@ -152,9 +152,7 @@ export default async function DashboardPage() {
   }
 
   const completedLessonIds = new Set(
-    progressRows
-      .filter((row) => row.completed)
-      .map((row) => row.lesson_id)
+    progressRows.filter((row) => row.completed).map((row) => row.lesson_id)
   )
 
   const issuedCertificateCourseIds = new Set(
@@ -284,6 +282,13 @@ export default async function DashboardPage() {
             )}
 
             <Link
+              href="/dashboard/progress"
+              className="rounded-xl border border-purple-300 bg-purple-50 px-5 py-3 font-semibold text-purple-700 transition hover:bg-purple-100"
+            >
+              My Progress
+            </Link>
+
+            <Link
               href="/certificates"
               className="rounded-xl border border-blue-300 bg-blue-50 px-5 py-3 font-semibold text-blue-700 transition hover:bg-blue-100"
             >
@@ -325,6 +330,13 @@ export default async function DashboardPage() {
                 className="rounded-xl bg-white px-5 py-3 font-semibold text-slate-950 transition hover:bg-blue-50"
               >
                 Explore courses
+              </Link>
+
+              <Link
+                href="/dashboard/progress"
+                className="rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
+              >
+                View progress report
               </Link>
 
               <Link
@@ -528,6 +540,13 @@ export default async function DashboardPage() {
                         className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
                       >
                         Course overview
+                      </Link>
+
+                      <Link
+                        href="/dashboard/progress"
+                        className="rounded-xl border border-purple-300 bg-purple-50 px-5 py-3 font-semibold text-purple-700 transition hover:bg-purple-100"
+                      >
+                        Progress report
                       </Link>
 
                       {progress.isComplete && (

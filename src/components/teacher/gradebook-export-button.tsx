@@ -16,6 +16,9 @@ type ExportRow = {
   riskLevel: string
   riskScore: number
   riskReasons: string
+  certificateStatus: string
+  certificateCode: string
+  certificateIssuedAt: string
 }
 
 type GradebookExportButtonProps = {
@@ -53,6 +56,9 @@ export default function GradebookExportButton({
       'Risk Level',
       'Risk Score',
       'Risk Reasons',
+      'Certificate Status',
+      'Certificate Code',
+      'Certificate Issued At',
     ]
 
     const csvRows = rows.map((row) => [
@@ -71,6 +77,9 @@ export default function GradebookExportButton({
       row.riskLevel,
       row.riskScore,
       row.riskReasons,
+      row.certificateStatus,
+      row.certificateCode,
+      row.certificateIssuedAt,
     ])
 
     const csv = [headers, ...csvRows]
