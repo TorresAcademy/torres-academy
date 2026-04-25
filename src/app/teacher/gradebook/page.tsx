@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import UserAvatar from '@/components/user-avatar'
 import GradebookExportButton from '@/components/teacher/gradebook-export-button'
 
@@ -79,6 +80,28 @@ type Certificate = {
   revoked_at: string | null
 }
 
+type SubmissionTask = {
+  id: number
+  lesson_id: number
+  is_published: boolean
+  is_required_for_completion: boolean
+  is_required_for_certificate: boolean
+}
+
+type StudentSubmission = {
+  id: number
+  task_id: number
+  lesson_id: number
+  course_id: number
+  student_id: string
+  status:
+    | 'submitted'
+    | 'reviewed'
+    | 'needs_revision'
+    | 'accepted'
+    | 'rejected'
+}
+
 type RiskLevel = 'Low' | 'Medium' | 'High'
 type CertificateStatus = 'Not ready' | 'Ready' | 'Issued' | 'Revoked'
 
@@ -94,6 +117,14 @@ type GradebookRow = {
   failedAttempts: number
   missingReflections: number
   pendingFeedback: number
+  totalSubmissionTasks: number
+  requiredSubmissionTasks: number
+  submittedTasks: number
+  reviewedSubmissionTasks: number
+  pendingSubmissionReviews: number
+  needsRevisionSubmissions: number
+  acceptedSubmissions: number
+  missingRequiredSubmissions: number
   riskLevel: RiskLevel
   riskScore: number
   riskReasons: string[]
@@ -107,7 +138,6 @@ type GradebookRow = {
 
 function formatDate(value: string | null) {
   if (!value) return ''
-
   return new Date(value).toLocaleString()
 }
 
@@ -138,6 +168,8 @@ function calculateRisk(input: {
   failedAttempts: number
   missingReflections: number
   pendingFeedback: number
+  missingRequiredSubmissions: number
+  needsRevisionSubmissions: number
 }) {
   let riskScore = 0
   const riskReasons: string[] = []
@@ -192,6 +224,22 @@ function calculateRisk(input: {
     riskReasons.push('Pending feedback request')
   }
 
+  if (input.missingRequiredSubmissions >= 3) {
+    riskScore += 3
+    riskReasons.push('Missing several required submissions')
+  } else if (input.missingRequiredSubmissions > 0) {
+    riskScore += 2
+    riskReasons.push('Missing required submission')
+  }
+
+  if (input.needsRevisionSubmissions >= 2) {
+    riskScore += 2
+    riskReasons.push('Multiple submissions need revision')
+  } else if (input.needsRevisionSubmissions > 0) {
+    riskScore += 1
+    riskReasons.push('Submission needs revision')
+  }
+
   if (riskScore >= 5) {
     return {
       riskLevel: 'High' as const,
@@ -230,6 +278,7 @@ export default async function TeacherGradebookPage({
 
   const { supabase, user, profile } = await requireTeacherOrAdmin()
   const isAdmin = profile.role === 'admin'
+  const serviceSupabase = createServiceRoleClient()
 
   const { data: coursesData } = isAdmin
     ? await supabase
@@ -254,6 +303,8 @@ export default async function TeacherGradebookPage({
   let reflections: Reflection[] = []
   let feedbackRequests: FeedbackRequest[] = []
   let certificates: Certificate[] = []
+  let submissionTasks: SubmissionTask[] = []
+  let studentSubmissions: StudentSubmission[] = []
 
   if (courseIds.length > 0) {
     const { data: enrollmentsData } = await supabase
@@ -295,6 +346,18 @@ export default async function TeacherGradebookPage({
     lessons = (lessonsData ?? []) as Lesson[]
 
     const lessonIds = lessons.map((lesson) => lesson.id)
+
+    if (lessonIds.length > 0) {
+      const { data: submissionTasksData } = await serviceSupabase
+        .from('lesson_submission_tasks')
+        .select(
+          'id, lesson_id, is_published, is_required_for_completion, is_required_for_certificate'
+        )
+        .in('lesson_id', lessonIds)
+        .eq('is_published', true)
+
+      submissionTasks = (submissionTasksData ?? []) as SubmissionTask[]
+    }
 
     if (lessonIds.length > 0 && studentIds.length > 0) {
       const { data: progressData } = await supabase
@@ -340,6 +403,18 @@ export default async function TeacherGradebookPage({
         .in('user_id', studentIds)
 
       feedbackRequests = (feedbackData ?? []) as FeedbackRequest[]
+
+      const submissionTaskIds = submissionTasks.map((task) => task.id)
+
+      if (submissionTaskIds.length > 0) {
+        const { data: studentSubmissionsData } = await serviceSupabase
+          .from('student_submissions')
+          .select('id, task_id, lesson_id, course_id, student_id, status')
+          .in('task_id', submissionTaskIds)
+          .in('student_id', studentIds)
+
+        studentSubmissions = (studentSubmissionsData ?? []) as StudentSubmission[]
+      }
     }
   }
 
@@ -364,28 +439,30 @@ export default async function TeacherGradebookPage({
 
     const courseLessons = lessonsByCourse.get(course.id) ?? []
     const lessonIds = courseLessons.map((lesson) => lesson.id)
+    const lessonIdSet = new Set(lessonIds)
     const totalLessons = courseLessons.length
 
     const completedLessons = progressRows.filter(
       (progress) =>
         progress.user_id === student.id &&
         progress.completed &&
-        lessonIds.includes(progress.lesson_id)
+        lessonIdSet.has(progress.lesson_id)
     ).length
 
     const progressPercentage =
       totalLessons > 0 ? Math.round((completedLessons / totalLessons) * 100) : 0
 
     const courseQuizzes = quizzes.filter((quiz) =>
-      lessonIds.includes(quiz.lesson_id)
+      lessonIdSet.has(quiz.lesson_id)
     )
 
     const totalQuizzes = courseQuizzes.length
     const quizIds = courseQuizzes.map((quiz) => quiz.id)
+    const quizIdSet = new Set(quizIds)
 
     const studentAttempts = quizAttempts.filter(
       (attempt) =>
-        attempt.user_id === student.id && quizIds.includes(attempt.quiz_id)
+        attempt.user_id === student.id && quizIdSet.has(attempt.quiz_id)
     )
 
     const bestScoreByQuiz = new Map<number, number>()
@@ -418,7 +495,7 @@ export default async function TeacherGradebookPage({
         (progress) =>
           progress.user_id === student.id &&
           progress.completed &&
-          lessonIds.includes(progress.lesson_id)
+          lessonIdSet.has(progress.lesson_id)
       )
       .map((progress) => progress.lesson_id)
 
@@ -427,7 +504,7 @@ export default async function TeacherGradebookPage({
         .filter(
           (reflection) =>
             reflection.user_id === student.id &&
-            lessonIds.includes(reflection.lesson_id)
+            lessonIdSet.has(reflection.lesson_id)
         )
         .map((reflection) => reflection.lesson_id)
     )
@@ -439,7 +516,7 @@ export default async function TeacherGradebookPage({
     const pendingFeedback = feedbackRequests.filter(
       (request) =>
         request.user_id === student.id &&
-        lessonIds.includes(request.lesson_id) &&
+        lessonIdSet.has(request.lesson_id) &&
         request.status === 'pending'
     ).length
 
@@ -461,6 +538,52 @@ export default async function TeacherGradebookPage({
           certificate.user_id === student.id &&
           certificate.course_id === course.id
       ) ?? null
+
+    const courseSubmissionTasks = submissionTasks.filter((task) =>
+      lessonIdSet.has(task.lesson_id)
+    )
+
+    const totalSubmissionTasks = courseSubmissionTasks.length
+    const requiredSubmissionTasksList = courseSubmissionTasks.filter(
+      (task) =>
+        task.is_required_for_completion || task.is_required_for_certificate
+    )
+    const requiredSubmissionTasks = requiredSubmissionTasksList.length
+
+    const courseTaskIds = courseSubmissionTasks.map((task) => task.id)
+    const courseTaskIdSet = new Set(courseTaskIds)
+
+    const studentCourseSubmissions = studentSubmissions.filter(
+      (submission) =>
+        submission.student_id === student.id &&
+        submission.course_id === course.id &&
+        courseTaskIdSet.has(submission.task_id)
+    )
+
+    const submittedTasks = studentCourseSubmissions.length
+    const submittedTaskIds = new Set(
+      studentCourseSubmissions.map((submission) => submission.task_id)
+    )
+
+    const reviewedSubmissionTasks = studentCourseSubmissions.filter(
+      (submission) => submission.status !== 'submitted'
+    ).length
+
+    const pendingSubmissionReviews = studentCourseSubmissions.filter(
+      (submission) => submission.status === 'submitted'
+    ).length
+
+    const needsRevisionSubmissions = studentCourseSubmissions.filter(
+      (submission) => submission.status === 'needs_revision'
+    ).length
+
+    const acceptedSubmissions = studentCourseSubmissions.filter(
+      (submission) => submission.status === 'accepted'
+    ).length
+
+    const missingRequiredSubmissions = requiredSubmissionTasksList.filter(
+      (task) => !submittedTaskIds.has(task.id)
+    ).length
 
     const certificateReady =
       totalLessons > 0 &&
@@ -486,6 +609,8 @@ export default async function TeacherGradebookPage({
       failedAttempts,
       missingReflections,
       pendingFeedback,
+      missingRequiredSubmissions,
+      needsRevisionSubmissions,
     })
 
     gradebookRows.push({
@@ -500,6 +625,14 @@ export default async function TeacherGradebookPage({
       failedAttempts,
       missingReflections,
       pendingFeedback,
+      totalSubmissionTasks,
+      requiredSubmissionTasks,
+      submittedTasks,
+      reviewedSubmissionTasks,
+      pendingSubmissionReviews,
+      needsRevisionSubmissions,
+      acceptedSubmissions,
+      missingRequiredSubmissions,
       riskLevel: risk.riskLevel,
       riskScore: risk.riskScore,
       riskReasons: risk.riskReasons,
@@ -544,6 +677,11 @@ export default async function TeacherGradebookPage({
         row.certificateStatus,
         row.certificateCode || '',
         ...row.riskReasons,
+        row.totalSubmissionTasks > 0 ? 'submission tasks' : '',
+        row.missingRequiredSubmissions > 0 ? 'missing required submissions' : '',
+        row.pendingSubmissionReviews > 0 ? 'pending submission review' : '',
+        row.needsRevisionSubmissions > 0 ? 'needs revision' : '',
+        row.acceptedSubmissions > 0 ? 'accepted submission' : '',
       ].join(' ')
     )
 
@@ -577,15 +715,15 @@ export default async function TeacherGradebookPage({
     0
   )
 
-  const averageProgress =
-    filteredRows.length > 0
-      ? Math.round(
-          filteredRows.reduce(
-            (total, row) => total + row.progressPercentage,
-            0
-          ) / filteredRows.length
-        )
-      : 0
+  const pendingSubmissionReviewCount = filteredRows.reduce(
+    (total, row) => total + row.pendingSubmissionReviews,
+    0
+  )
+
+  const missingRequiredSubmissionCount = filteredRows.reduce(
+    (total, row) => total + row.missingRequiredSubmissions,
+    0
+  )
 
   const exportRows = filteredRows.map((row) => ({
     studentName: row.student.full_name || row.student.email || 'Unnamed student',
@@ -600,6 +738,14 @@ export default async function TeacherGradebookPage({
     failedAttempts: row.failedAttempts,
     missingReflections: row.missingReflections,
     pendingFeedback: row.pendingFeedback,
+    totalSubmissionTasks: row.totalSubmissionTasks,
+    requiredSubmissionTasks: row.requiredSubmissionTasks,
+    submittedTasks: row.submittedTasks,
+    reviewedSubmissionTasks: row.reviewedSubmissionTasks,
+    pendingSubmissionReviews: row.pendingSubmissionReviews,
+    needsRevisionSubmissions: row.needsRevisionSubmissions,
+    acceptedSubmissions: row.acceptedSubmissions,
+    missingRequiredSubmissions: row.missingRequiredSubmissions,
     riskLevel: row.riskLevel,
     riskScore: row.riskScore,
     riskReasons: row.riskReasons.join('; '),
@@ -620,12 +766,13 @@ export default async function TeacherGradebookPage({
         </h2>
 
         <p className="mt-2 text-slate-600">
-          Filter students by course, risk level, or search terms. Certificate
-          status is now included in teacher reports and CSV exports.
+          Filter students by course, risk level, or search terms. Submission
+          status is now included alongside progress, quizzes, reflections,
+          feedback, and certificates.
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-6">
+      <div className="grid gap-6 md:grid-cols-8">
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-slate-500">Filtered rows</p>
           <p className="mt-2 text-3xl font-bold text-slate-900">
@@ -670,6 +817,20 @@ export default async function TeacherGradebookPage({
             {issuedCertificateCount}
           </p>
         </div>
+
+        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
+          <p className="text-sm text-amber-700">Missing required submissions</p>
+          <p className="mt-2 text-3xl font-bold text-amber-700">
+            {missingRequiredSubmissionCount}
+          </p>
+        </div>
+
+        <div className="rounded-3xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
+          <p className="text-sm text-blue-700">Pending submission review</p>
+          <p className="mt-2 text-3xl font-bold text-blue-700">
+            {pendingSubmissionReviewCount}
+          </p>
+        </div>
       </div>
 
       <form
@@ -684,7 +845,7 @@ export default async function TeacherGradebookPage({
             <input
               name="q"
               defaultValue={searchQuery}
-              placeholder="Search student, email, course, reason, certificate..."
+              placeholder="Search student, email, course, reason, certificate, submission..."
               className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
             />
           </div>
@@ -747,13 +908,15 @@ export default async function TeacherGradebookPage({
         </div>
       </form>
 
-      {pendingFeedbackCount > 0 && (
+      {(pendingFeedbackCount > 0 || pendingSubmissionReviewCount > 0) && (
         <div className="rounded-3xl border border-blue-200 bg-blue-50 p-5 text-sm text-slate-700">
           <span className="font-semibold text-slate-900">
             Teacher action:
           </span>{' '}
           The filtered gradebook has {pendingFeedbackCount} pending feedback
-          request{pendingFeedbackCount === 1 ? '' : 's'}.
+          request{pendingFeedbackCount === 1 ? '' : 's'} and{' '}
+          {pendingSubmissionReviewCount} submission
+          {pendingSubmissionReviewCount === 1 ? '' : 's'} waiting for review.
         </div>
       )}
 
@@ -824,6 +987,18 @@ export default async function TeacherGradebookPage({
                 </div>
 
                 <div className="flex flex-wrap gap-2">
+                  {row.missingRequiredSubmissions > 0 && (
+                    <span className="rounded-full bg-amber-100 px-4 py-2 text-sm font-bold text-amber-800">
+                      Missing required: {row.missingRequiredSubmissions}
+                    </span>
+                  )}
+
+                  {row.pendingSubmissionReviews > 0 && (
+                    <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-bold text-blue-700">
+                      Review queue: {row.pendingSubmissionReviews}
+                    </span>
+                  )}
+
                   <span
                     className={`rounded-full px-4 py-2 text-sm font-bold ${getCertificateBadgeClass(
                       row.certificateStatus
@@ -842,7 +1017,7 @@ export default async function TeacherGradebookPage({
                 </div>
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-6">
+              <div className="mt-6 grid gap-4 md:grid-cols-8">
                 <div className="rounded-2xl bg-white/70 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Progress
@@ -915,6 +1090,34 @@ export default async function TeacherGradebookPage({
 
                 <div className="rounded-2xl bg-white/70 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Submissions
+                  </p>
+
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {row.submittedTasks}/{row.totalSubmissionTasks}
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-600">
+                    Required: {row.requiredSubmissionTasks}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-white/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Submission review
+                  </p>
+
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {row.pendingSubmissionReviews}
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-600">
+                    Needs revision: {row.needsRevisionSubmissions}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl bg-white/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Certificate
                   </p>
 
@@ -924,6 +1127,44 @@ export default async function TeacherGradebookPage({
 
                   <p className="mt-1 text-xs text-slate-600">
                     Finals: {row.passedFinalQuizzes}/{row.totalFinalQuizzes}
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-4 md:grid-cols-4">
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Required submissions
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {row.requiredSubmissionTasks}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Missing required
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {row.missingRequiredSubmissions}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Reviewed submissions
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {row.reviewedSubmissionTasks}
+                  </p>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    Accepted submissions
+                  </p>
+                  <p className="mt-2 text-2xl font-bold text-slate-900">
+                    {row.acceptedSubmissions}
                   </p>
                 </div>
               </div>

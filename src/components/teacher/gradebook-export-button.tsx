@@ -13,6 +13,14 @@ type ExportRow = {
   failedAttempts: number
   missingReflections: number
   pendingFeedback: number
+  totalSubmissionTasks: number
+  requiredSubmissionTasks: number
+  submittedTasks: number
+  reviewedSubmissionTasks: number
+  pendingSubmissionReviews: number
+  needsRevisionSubmissions: number
+  acceptedSubmissions: number
+  missingRequiredSubmissions: number
   riskLevel: string
   riskScore: number
   riskReasons: string
@@ -29,7 +37,11 @@ function escapeCsv(value: string | number | null) {
   const text = value === null ? '' : String(value)
   const escaped = text.replace(/"/g, '""')
 
-  if (escaped.includes(',') || escaped.includes('"') || escaped.includes('\n')) {
+  if (
+    escaped.includes(',') ||
+    escaped.includes('"') ||
+    escaped.includes('\n')
+  ) {
     return `"${escaped}"`
   }
 
@@ -53,6 +65,14 @@ export default function GradebookExportButton({
       'Failed Attempts',
       'Missing Reflections',
       'Pending Feedback',
+      'Total Submission Tasks',
+      'Required Submission Tasks',
+      'Submitted Tasks',
+      'Reviewed Submission Tasks',
+      'Pending Submission Reviews',
+      'Needs Revision Submissions',
+      'Accepted Submissions',
+      'Missing Required Submissions',
       'Risk Level',
       'Risk Score',
       'Risk Reasons',
@@ -74,6 +94,14 @@ export default function GradebookExportButton({
       row.failedAttempts,
       row.missingReflections,
       row.pendingFeedback,
+      row.totalSubmissionTasks,
+      row.requiredSubmissionTasks,
+      row.submittedTasks,
+      row.reviewedSubmissionTasks,
+      row.pendingSubmissionReviews,
+      row.needsRevisionSubmissions,
+      row.acceptedSubmissions,
+      row.missingRequiredSubmissions,
       row.riskLevel,
       row.riskScore,
       row.riskReasons,

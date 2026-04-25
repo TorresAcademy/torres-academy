@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/service-role";
 
 const BUCKET = "student-submissions";
 const DEFAULT_FILE_TYPES = ["pdf", "png", "jpg", "jpeg"];
@@ -34,6 +35,37 @@ function getAcceptedFileTypes(task: Record<string, any>) {
   }
 
   return DEFAULT_FILE_TYPES;
+}
+
+async function createTeacherSubmissionNotification(params: {
+  teacherId: string | null | undefined;
+  studentName: string;
+  courseTitle: string;
+  lessonTitle: string;
+  taskTitle: string;
+  notificationType: "submission_received" | "submission_resubmitted";
+}) {
+  if (!params.teacherId) return;
+
+  const serviceSupabase = createServiceRoleClient();
+
+  const isResubmission = params.notificationType === "submission_resubmitted";
+
+  const title = isResubmission
+    ? `Revision resubmitted: ${params.taskTitle}`
+    : `New submission received: ${params.taskTitle}`;
+
+  const message = isResubmission
+    ? `${params.studentName} re-submitted work for ${params.lessonTitle} in ${params.courseTitle}.`
+    : `${params.studentName} submitted work for ${params.lessonTitle} in ${params.courseTitle}.`;
+
+  await serviceSupabase.from("notifications").insert({
+    user_id: params.teacherId,
+    type: params.notificationType,
+    title,
+    message,
+    link_url: "/teacher/submissions",
+  });
 }
 
 export async function GET(request: Request) {
@@ -125,6 +157,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
+    const serviceSupabase = createServiceRoleClient();
 
     const {
       data: { user },
@@ -134,6 +167,15 @@ export async function POST(request: Request) {
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+
+    const { data: studentProfile } = await supabase
+      .from("profiles")
+      .select("full_name, email")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    const studentName =
+      studentProfile?.full_name || studentProfile?.email || "A student";
 
     const formData = await request.formData();
 
@@ -174,13 +216,26 @@ export async function POST(request: Request) {
 
     const { data: lesson, error: lessonError } = await supabase
       .from("lessons")
-      .select("id, course_id")
+      .select("id, course_id, title")
       .eq("id", task.lesson_id)
       .single();
 
     if (lessonError || !lesson) {
       return NextResponse.json(
         { error: "Could not resolve lesson/course for this task" },
+        { status: 500 }
+      );
+    }
+
+    const { data: course, error: courseError } = await serviceSupabase
+      .from("courses")
+      .select("id, title, slug, teacher_id")
+      .eq("id", lesson.course_id)
+      .single();
+
+    if (courseError || !course) {
+      return NextResponse.json(
+        { error: "Could not resolve course teacher for this task" },
         { status: 500 }
       );
     }
@@ -320,6 +375,29 @@ export async function POST(request: Request) {
       }
 
       savedSubmission = data;
+    }
+
+    const shouldNotifyTeacher =
+      !existingSubmission || existingSubmission.status === "needs_revision";
+
+    const notificationType =
+      existingSubmission?.status === "needs_revision"
+        ? "submission_resubmitted"
+        : "submission_received";
+
+    if (shouldNotifyTeacher) {
+      try {
+        await createTeacherSubmissionNotification({
+          teacherId: course.teacher_id,
+          studentName,
+          courseTitle: course.title,
+          lessonTitle: lesson.title,
+          taskTitle: task.title,
+          notificationType,
+        });
+      } catch (notificationError) {
+        console.error("Teacher notification error:", notificationError);
+      }
     }
 
     let fileUrl: string | null = null;

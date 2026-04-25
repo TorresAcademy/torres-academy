@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
+import CourseModuleSelect from '@/components/teacher/course-module-select'
 
 type TeacherEditLessonPageProps = {
   params: Promise<{ id: string }>
@@ -10,6 +11,15 @@ type TeacherEditLessonPageProps = {
 type Course = {
   id: number
   title: string
+  slug: string
+}
+
+type Module = {
+  id: number
+  course_id: number
+  title: string
+  position: number
+  is_published: boolean
 }
 
 function slugify(value: string) {
@@ -37,7 +47,7 @@ export default async function TeacherEditLessonPage({
   const { data: lesson } = await supabase
     .from('lessons')
     .select(
-      'id, course_id, title, slug, content, video_url, position, is_published, teacher_explanation, encouragement_title, encouragement_text, media_path, media_type'
+      'id, course_id, module_id, title, slug, content, video_url, position, is_published, teacher_explanation, encouragement_title, encouragement_text, media_path, media_type'
     )
     .eq('id', lessonId)
     .maybeSingle()
@@ -48,7 +58,7 @@ export default async function TeacherEditLessonPage({
 
   const { data: lessonCourse } = await supabase
     .from('courses')
-    .select('id, title, teacher_id')
+    .select('id, title, slug, teacher_id')
     .eq('id', lesson.course_id)
     .maybeSingle()
 
@@ -63,15 +73,29 @@ export default async function TeacherEditLessonPage({
   const { data: coursesData } = isAdmin
     ? await supabase
         .from('courses')
-        .select('id, title')
+        .select('id, title, slug')
         .order('title', { ascending: true })
     : await supabase
         .from('courses')
-        .select('id, title')
+        .select('id, title, slug')
         .eq('teacher_id', user.id)
         .order('title', { ascending: true })
 
   const courses = (coursesData ?? []) as Course[]
+  const courseIds = courses.map((course) => course.id)
+
+  let modules: Module[] = []
+
+  if (courseIds.length > 0) {
+    const { data: modulesData } = await supabase
+      .from('course_modules')
+      .select('id, course_id, title, position, is_published')
+      .in('course_id', courseIds)
+      .order('course_id', { ascending: true })
+      .order('position', { ascending: true })
+
+    modules = (modulesData ?? []) as Module[]
+  }
 
   async function updateLesson(formData: FormData) {
     'use server'
@@ -80,6 +104,9 @@ export default async function TeacherEditLessonPage({
     const isAdmin = profile.role === 'admin'
 
     const courseId = Number(formData.get('course_id'))
+    const moduleIdRaw = String(formData.get('module_id') || '').trim()
+    const moduleId = moduleIdRaw ? Number(moduleIdRaw) : null
+
     const title = String(formData.get('title') || '').trim()
     const slugValue = String(formData.get('slug') || '').trim()
     const content = String(formData.get('content') || '').trim()
@@ -102,7 +129,7 @@ export default async function TeacherEditLessonPage({
 
     const { data: targetCourse } = await supabase
       .from('courses')
-      .select('id, teacher_id')
+      .select('id, slug, teacher_id')
       .eq('id', courseId)
       .maybeSingle()
 
@@ -116,12 +143,30 @@ export default async function TeacherEditLessonPage({
 
     const { data: existingLesson } = await supabase
       .from('lessons')
-      .select('id, course_id')
+      .select('id, course_id, slug')
       .eq('id', lessonId)
       .maybeSingle()
 
     if (!existingLesson) {
       redirect('/teacher/lessons')
+    }
+
+    const { data: oldCourse } = await supabase
+      .from('courses')
+      .select('id, slug')
+      .eq('id', existingLesson.course_id)
+      .maybeSingle()
+
+    if (moduleId) {
+      const { data: targetModule } = await supabase
+        .from('course_modules')
+        .select('id, course_id')
+        .eq('id', moduleId)
+        .maybeSingle()
+
+      if (!targetModule || targetModule.course_id !== courseId) {
+        redirect(`/teacher/lessons/${lessonId}/edit`)
+      }
     }
 
     const cleanSlug = slugify(slugValue || title)
@@ -130,6 +175,7 @@ export default async function TeacherEditLessonPage({
       .from('lessons')
       .update({
         course_id: courseId,
+        module_id: moduleId,
         title,
         slug: cleanSlug,
         content,
@@ -144,7 +190,22 @@ export default async function TeacherEditLessonPage({
 
     revalidatePath('/teacher/lessons')
     revalidatePath(`/teacher/lessons/${lessonId}/edit`)
+    revalidatePath(`/teacher/courses/${courseId}/edit`)
     revalidatePath(`/lessons/${cleanSlug}`)
+    revalidatePath(`/lessons/${cleanSlug}/presentation`)
+
+    if (existingLesson.slug && existingLesson.slug !== cleanSlug) {
+      revalidatePath(`/lessons/${existingLesson.slug}`)
+      revalidatePath(`/lessons/${existingLesson.slug}/presentation`)
+    }
+
+    if (targetCourse.slug) {
+      revalidatePath(`/courses/${targetCourse.slug}`)
+    }
+
+    if (oldCourse?.slug && oldCourse.slug !== targetCourse.slug) {
+      revalidatePath(`/courses/${oldCourse.slug}`)
+    }
 
     redirect(`/teacher/lessons/${lessonId}/edit`)
   }
@@ -168,8 +229,8 @@ export default async function TeacherEditLessonPage({
         </h2>
 
         <p className="mt-2 text-slate-600">
-          Manage lesson content, teacher explanation, encouragement, media, and
-          quizzes from one place.
+          Manage lesson content, module assignment, teacher explanation,
+          encouragement, media, quizzes, and presentation-ready teaching notes.
         </p>
       </div>
 
@@ -184,23 +245,12 @@ export default async function TeacherEditLessonPage({
             </h3>
 
             <div className="mt-6 grid gap-5">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Course
-                </label>
-
-                <select
-                  name="course_id"
-                  defaultValue={lesson.course_id}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-                >
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <CourseModuleSelect
+                courses={courses}
+                modules={modules}
+                defaultCourseId={lesson.course_id}
+                defaultModuleId={lesson.module_id}
+              />
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -281,9 +331,9 @@ export default async function TeacherEditLessonPage({
             </h3>
 
             <p className="mt-2 text-sm text-slate-600">
-              This appears below the lesson content for students. Use it for
-              extra explanation, common mistakes, reminders, examples, or
-              clarification.
+              This appears in the lesson page and also in Presentation View. Use
+              it for speaking notes, clarification, examples, or classroom
+              teaching prompts.
             </p>
 
             <div className="mt-5">
@@ -296,7 +346,7 @@ export default async function TeacherEditLessonPage({
                 defaultValue={lesson.teacher_explanation ?? ''}
                 rows={6}
                 className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
-                placeholder="Example: Remember that the key idea in this lesson is..."
+                placeholder="Example: Start by asking students what they notice before reading the dialogue..."
               />
             </div>
           </section>
@@ -307,8 +357,8 @@ export default async function TeacherEditLessonPage({
             </h3>
 
             <p className="mt-2 text-sm text-slate-600">
-              This is the highlighted encouragement box students see under the
-              teacher explanation.
+              This is the highlighted teaching note shown under the explanation.
+              It also appears in Presentation View.
             </p>
 
             <div className="mt-5 grid gap-5">
@@ -335,7 +385,7 @@ export default async function TeacherEditLessonPage({
                   defaultValue={lesson.encouragement_text ?? ''}
                   rows={5}
                   className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
-                  placeholder="Example: You are doing well. Review the key vocabulary before moving on..."
+                  placeholder="Example: Encourage students to repeat the dialogue aloud in pairs..."
                 />
               </div>
             </div>
@@ -391,6 +441,7 @@ export default async function TeacherEditLessonPage({
               >
                 Quiz Builder
               </Link>
+
               <Link
                 href={`/teacher/lessons/${lesson.id}/submissions`}
                 className="rounded-xl bg-emerald-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-emerald-700"
@@ -403,6 +454,13 @@ export default async function TeacherEditLessonPage({
                 className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-center font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
               >
                 Preview lesson
+              </Link>
+
+              <Link
+                href={`/lessons/${lesson.slug}/presentation`}
+                className="rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-center font-semibold text-blue-700 transition hover:bg-blue-100"
+              >
+                Presentation View
               </Link>
             </div>
           </div>
@@ -421,14 +479,27 @@ export default async function TeacherEditLessonPage({
             </p>
           </div>
 
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-xl font-bold text-slate-900">
+              Module status
+            </h3>
+
+            <p className="mt-3 text-sm text-slate-600">
+              {lesson.module_id
+                ? 'This lesson is currently assigned to a module.'
+                : 'This lesson is not assigned to any module yet.'}
+            </p>
+          </div>
+
           <div className="rounded-3xl border border-blue-200 bg-blue-50 p-6">
             <h3 className="text-xl font-bold text-slate-900">
-              Student view
+              Presentation mode
             </h3>
 
             <p className="mt-3 text-sm leading-7 text-slate-700">
-              The teacher explanation and encouragement note will appear inside
-              the student lesson page under the learning screen.
+              Presentation View is designed for projector, tutoring, and
+              full-screen teaching. It shows the lesson content with the teacher
+              explanation and teaching note beside it.
             </p>
           </div>
         </aside>

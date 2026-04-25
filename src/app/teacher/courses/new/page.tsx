@@ -15,7 +15,8 @@ export default async function TeacherNewCoursePage() {
           Create course
         </h2>
         <p className="mt-2 text-slate-600">
-          Create a new course for your teacher hub.
+          Create a new course with lifecycle, seasonal dates, and recommended
+          duration settings.
         </p>
       </div>
 

@@ -2,17 +2,54 @@
 import Link from 'next/link'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 
+type CourseStatus = 'draft' | 'published' | 'archived'
+
 type Course = {
   id: number
   title: string
   slug: string
   description: string | null
   is_published: boolean | null
+  status: CourseStatus | null
+  enrollment_opens_at: string | null
+  enrollment_closes_at: string | null
+  course_starts_at: string | null
+  course_ends_at: string | null
+  recommended_duration_label: string | null
 }
 
 type Lesson = {
   id: number
   course_id: number
+}
+
+function normalizeStatus(
+  status: CourseStatus | null,
+  isPublished: boolean | null
+): CourseStatus {
+  if (status === 'draft' || status === 'published' || status === 'archived') {
+    return status
+  }
+
+  return isPublished ? 'published' : 'draft'
+}
+
+function formatDate(value: string | null) {
+  if (!value) return null
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
+}
+
+function getStatusBadgeClass(status: CourseStatus) {
+  if (status === 'published') return 'bg-green-100 text-green-700'
+  if (status === 'archived') return 'bg-slate-200 text-slate-700'
+  return 'bg-amber-100 text-amber-700'
 }
 
 export default async function TeacherCoursesPage() {
@@ -22,11 +59,15 @@ export default async function TeacherCoursesPage() {
   const { data: coursesData } = isAdmin
     ? await supabase
         .from('courses')
-        .select('id, title, slug, description, is_published')
+        .select(
+          'id, title, slug, description, is_published, status, enrollment_opens_at, enrollment_closes_at, course_starts_at, course_ends_at, recommended_duration_label'
+        )
         .order('created_at', { ascending: false })
     : await supabase
         .from('courses')
-        .select('id, title, slug, description, is_published')
+        .select(
+          'id, title, slug, description, is_published, status, enrollment_opens_at, enrollment_closes_at, course_starts_at, course_ends_at, recommended_duration_label'
+        )
         .eq('teacher_id', user.id)
         .order('created_at', { ascending: false })
 
@@ -54,7 +95,8 @@ export default async function TeacherCoursesPage() {
             My courses
           </h2>
           <p className="mt-2 text-slate-600">
-            Create and manage the courses you teach.
+            Create and manage courses with lifecycle, seasonal timing, and
+            duration planning.
           </p>
         </div>
 
@@ -77,6 +119,12 @@ export default async function TeacherCoursesPage() {
               (lesson) => lesson.course_id === course.id
             ).length
 
+            const status = normalizeStatus(course.status, course.is_published)
+            const enrollmentOpensAt = formatDate(course.enrollment_opens_at)
+            const enrollmentClosesAt = formatDate(course.enrollment_closes_at)
+            const courseStartsAt = formatDate(course.course_starts_at)
+            const courseEndsAt = formatDate(course.course_ends_at)
+
             return (
               <article
                 key={course.id}
@@ -93,19 +141,75 @@ export default async function TeacherCoursesPage() {
                     <div className="mt-3 flex flex-wrap gap-3 text-sm text-slate-600">
                       <span>Slug: {course.slug}</span>
                       <span>Lessons: {lessonCount}</span>
+                      {course.recommended_duration_label && (
+                        <span>
+                          Recommended: {course.recommended_duration_label}
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      course.is_published
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-amber-100 text-amber-700'
-                    }`}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(
+                      status
+                    )}`}
                   >
-                    {course.is_published ? 'Published' : 'Draft'}
+                    {status === 'published'
+                      ? 'Published'
+                      : status === 'archived'
+                        ? 'Archived'
+                        : 'Draft'}
                   </span>
                 </div>
+
+                {(enrollmentOpensAt ||
+                  enrollmentClosesAt ||
+                  courseStartsAt ||
+                  courseEndsAt) && (
+                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                    <p className="text-sm font-semibold text-slate-900">
+                      Seasonal timing
+                    </p>
+
+                    <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                          Enrollment opens
+                        </p>
+                        <p className="mt-1 text-sm text-slate-700">
+                          {enrollmentOpensAt || '—'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                          Enrollment closes
+                        </p>
+                        <p className="mt-1 text-sm text-slate-700">
+                          {enrollmentClosesAt || '—'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                          Course starts
+                        </p>
+                        <p className="mt-1 text-sm text-slate-700">
+                          {courseStartsAt || '—'}
+                        </p>
+                      </div>
+
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.14em] text-slate-500">
+                          Course ends
+                        </p>
+                        <p className="mt-1 text-sm text-slate-700">
+                          {courseEndsAt || '—'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 <div className="mt-5 flex flex-wrap gap-3">
                   <Link
@@ -115,12 +219,18 @@ export default async function TeacherCoursesPage() {
                     Edit
                   </Link>
 
-                  <Link
-                    href={`/courses/${course.slug}`}
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-                  >
-                    View public page
-                  </Link>
+                  {status === 'published' ? (
+                    <Link
+                      href={`/courses/${course.slug}`}
+                      className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                    >
+                      View public page
+                    </Link>
+                  ) : (
+                    <span className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-500">
+                      Hidden from students until published
+                    </span>
+                  )}
                 </div>
               </article>
             )

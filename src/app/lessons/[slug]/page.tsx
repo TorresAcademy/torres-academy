@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
 import { createClient } from '@/lib/supabase/server'
@@ -8,6 +9,25 @@ type LessonPageProps = {
   params: Promise<{
     slug: string
   }>
+}
+
+type CourseModule = {
+  id: number
+  course_id: number
+  title: string
+  position: number
+  is_published: boolean
+  release_at: string | null
+  due_at: string | null
+}
+
+type CourseLesson = {
+  id: number
+  title: string
+  slug: string
+  position: number
+  is_published: boolean | null
+  module_id: number | null
 }
 
 type Quiz = {
@@ -37,6 +57,24 @@ type QuizAttempt = {
   created_at: string
 }
 
+function isModuleAccessible(
+  moduleRow: CourseModule | null | undefined,
+  canBypassEnrollment: boolean
+) {
+  if (canBypassEnrollment) return true
+  if (!moduleRow) return true
+  if (!moduleRow.is_published) return false
+
+  if (moduleRow.release_at) {
+    const releaseAt = new Date(moduleRow.release_at)
+    if (!Number.isNaN(releaseAt.getTime()) && new Date() < releaseAt) {
+      return false
+    }
+  }
+
+  return true
+}
+
 export default async function LessonPage({ params }: LessonPageProps) {
   const { slug } = await params
   const supabase = await createClient()
@@ -61,7 +99,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
   let lessonQuery = supabase
     .from('lessons')
     .select(
-      'id, title, slug, content, position, course_id, is_published, media_path, media_type, media_original_name, media_mime_type, teacher_explanation, encouragement_title, encouragement_text'
+      'id, title, slug, content, position, course_id, module_id, is_published, media_path, media_type, media_original_name, media_mime_type, teacher_explanation, encouragement_title, encouragement_text'
     )
     .eq('slug', slug)
 
@@ -77,7 +115,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
 
   const { data: course } = await supabase
     .from('courses')
-    .select('id, title, slug, is_published, is_free')
+    .select('id, title, slug, is_published, is_free, status')
     .eq('id', lesson.course_id)
     .maybeSingle()
 
@@ -85,7 +123,10 @@ export default async function LessonPage({ params }: LessonPageProps) {
     notFound()
   }
 
-  if (!canBypassEnrollment && !course.is_published) {
+  if (
+    !canBypassEnrollment &&
+    (!course.is_published || course.status !== 'published')
+  ) {
     notFound()
   }
 
@@ -98,7 +139,7 @@ export default async function LessonPage({ params }: LessonPageProps) {
       .maybeSingle()
 
     if (!enrollment) {
-      if (course.is_published && course.is_free) {
+      if (course.is_published && course.is_free && course.status === 'published') {
         const { error: enrollError } = await supabase.from('enrollments').insert({
           user_id: user.id,
           course_id: course.id,
@@ -114,9 +155,26 @@ export default async function LessonPage({ params }: LessonPageProps) {
     }
   }
 
+  const { data: courseModulesData } = await supabase
+    .from('course_modules')
+    .select('id, course_id, title, position, is_published, release_at, due_at')
+    .eq('course_id', course.id)
+    .order('position', { ascending: true })
+    .order('id', { ascending: true })
+
+  const courseModules = (courseModulesData ?? []) as CourseModule[]
+  const courseModuleMap = new Map(courseModules.map((module) => [module.id, module]))
+
+  const currentModule =
+    lesson.module_id !== null ? courseModuleMap.get(lesson.module_id) ?? null : null
+
+  if (!isModuleAccessible(currentModule, canBypassEnrollment)) {
+    redirect(`/courses/${course.slug}`)
+  }
+
   let courseLessonsQuery = supabase
     .from('lessons')
-    .select('id, title, slug, position, is_published')
+    .select('id, title, slug, position, is_published, module_id')
     .eq('course_id', course.id)
     .order('position', { ascending: true })
 
@@ -126,7 +184,15 @@ export default async function LessonPage({ params }: LessonPageProps) {
 
   const { data: courseLessonsData } = await courseLessonsQuery
 
-  const courseLessons = courseLessonsData ?? []
+  const courseLessonsRaw = (courseLessonsData ?? []) as CourseLesson[]
+
+  const courseLessons = courseLessonsRaw.filter((item) => {
+    const itemModule =
+      item.module_id !== null ? courseModuleMap.get(item.module_id) ?? null : null
+
+    return isModuleAccessible(itemModule, canBypassEnrollment)
+  })
+
   const lessonIds = courseLessons.map((item) => item.id)
 
   let progressRows: { lesson_id: number; completed: boolean }[] = []
@@ -269,6 +335,33 @@ export default async function LessonPage({ params }: LessonPageProps) {
       redirect(`/login?next=/lessons/${slug}`)
     }
 
+    const { data: currentLesson } = await supabase
+      .from('lessons')
+      .select('id, module_id')
+      .eq('id', lessonId)
+      .maybeSingle()
+
+      if (!currentLesson) {
+      redirect(`/courses/${courseSlug}`)
+    }
+
+    if (currentLesson.module_id !== null) {
+      const { data: currentModuleRow } = await supabase
+        .from('course_modules')
+        .select('id, is_published, release_at')
+        .eq('id', currentLesson.module_id)
+        .maybeSingle()
+
+      if (
+        currentModuleRow &&
+        (!currentModuleRow.is_published ||
+          (currentModuleRow.release_at &&
+            new Date() < new Date(currentModuleRow.release_at)))
+      ) {
+        redirect(`/courses/${courseSlug}`)
+      }
+    }
+
     const { data: finalQuizzesData } = await supabase
       .from('quizzes')
       .select('id')
@@ -322,48 +415,61 @@ export default async function LessonPage({ params }: LessonPageProps) {
   }
 
   return (
-    <StudentLessonExperience
-      userId={user.id}
-      course={{
-        id: course.id,
-        title: course.title,
-        slug: course.slug,
-      }}
-      lesson={{
-        id: lesson.id,
-        title: lesson.title,
-        slug: lesson.slug,
-        content: lesson.content,
-        position: lesson.position,
-        teacher_explanation: lesson.teacher_explanation,
-        encouragement_title: lesson.encouragement_title,
-        encouragement_text: lesson.encouragement_text,
-      }}
-      lessons={navigationLessons}
-      previousLesson={previousLesson}
-      nextLesson={nextLesson}
-      isCompleted={isCompleted}
-      initialNote={noteData?.content ?? ''}
-      initialReaction={reactionData?.reaction ?? ''}
-      initialReflection={{
-        learned: reflectionData?.learned ?? '',
-        difficult: reflectionData?.difficult ?? '',
-        nextStep: reflectionData?.next_step ?? '',
-        confidence: reflectionData?.confidence_level
-          ? String(reflectionData.confidence_level)
-          : '',
-      }}
-      initialFeedbackRequest={feedbackRequestData ?? null}
-      quizzes={quizzes}
-      quizAttempts={quizAttempts}
-      finalQuizPassed={finalQuizPassed}
-      media={{
-        url: mediaSignedUrl,
-        type: lesson.media_type,
-        mimeType: lesson.media_mime_type,
-        originalName: lesson.media_original_name,
-      }}
-      completeAction={completeAction}
-    />
+    <div>
+      <div className="mx-auto max-w-7xl px-6 pt-6">
+        <div className="flex flex-wrap items-center justify-end gap-3">
+          <Link
+            href={`/lessons/${lesson.slug}/presentation`}
+            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+          >
+            Presentation View
+          </Link>
+        </div>
+      </div>
+
+      <StudentLessonExperience
+        userId={user.id}
+        course={{
+          id: course.id,
+          title: course.title,
+          slug: course.slug,
+        }}
+        lesson={{
+          id: lesson.id,
+          title: lesson.title,
+          slug: lesson.slug,
+          content: lesson.content,
+          position: lesson.position,
+          teacher_explanation: lesson.teacher_explanation,
+          encouragement_title: lesson.encouragement_title,
+          encouragement_text: lesson.encouragement_text,
+        }}
+        lessons={navigationLessons}
+        previousLesson={previousLesson}
+        nextLesson={nextLesson}
+        isCompleted={isCompleted}
+        initialNote={noteData?.content ?? ''}
+        initialReaction={reactionData?.reaction ?? ''}
+        initialReflection={{
+          learned: reflectionData?.learned ?? '',
+          difficult: reflectionData?.difficult ?? '',
+          nextStep: reflectionData?.next_step ?? '',
+          confidence: reflectionData?.confidence_level
+            ? String(reflectionData.confidence_level)
+            : '',
+        }}
+        initialFeedbackRequest={feedbackRequestData ?? null}
+        quizzes={quizzes}
+        quizAttempts={quizAttempts}
+        finalQuizPassed={finalQuizPassed}
+        media={{
+          url: mediaSignedUrl,
+          type: lesson.media_type,
+          mimeType: lesson.media_mime_type,
+          originalName: lesson.media_original_name,
+        }}
+        completeAction={completeAction}
+      />
+    </div>
   )
 }

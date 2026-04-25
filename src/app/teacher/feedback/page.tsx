@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
+import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import UserAvatar from '@/components/user-avatar'
 
 type FeedbackRequest = {
@@ -26,6 +27,7 @@ type Lesson = {
 type Course = {
   id: number
   title: string
+  teacher_id?: string | null
 }
 
 type Student = {
@@ -35,13 +37,47 @@ type Student = {
   avatar_url: string | null
 }
 
+async function createStudentFeedbackNotification(params: {
+  studentId: string
+  lessonSlug: string
+  lessonTitle: string
+  type: 'feedback_reviewed' | 'feedback_closed'
+  teacherFeedback?: string | null
+}) {
+  const serviceSupabase = createServiceRoleClient()
+
+  const title =
+    params.type === 'feedback_reviewed'
+      ? `Teacher replied: ${params.lessonTitle}`
+      : `Feedback request closed: ${params.lessonTitle}`
+
+  const message =
+    params.type === 'feedback_reviewed'
+      ? params.teacherFeedback?.trim() ||
+        `Your teacher replied to your feedback request for ${params.lessonTitle}.`
+      : `Your feedback request for ${params.lessonTitle} was marked closed.`
+
+  await serviceSupabase.from('notifications').insert({
+    user_id: params.studentId,
+    type: params.type,
+    title,
+    message,
+    link_url: `/lessons/${params.lessonSlug}`,
+  })
+}
+
 export default async function TeacherFeedbackPage() {
   const { supabase, user, profile } = await requireTeacherOrAdmin()
   const isAdmin = profile.role === 'admin'
 
   const { data: coursesData } = isAdmin
-    ? await supabase.from('courses').select('id, title')
-    : await supabase.from('courses').select('id, title').eq('teacher_id', user.id)
+    ? await supabase
+        .from('courses')
+        .select('id, title, teacher_id')
+    : await supabase
+        .from('courses')
+        .select('id, title, teacher_id')
+        .eq('teacher_id', user.id)
 
   const courses = (coursesData ?? []) as Course[]
   const courseIds = courses.map((course) => course.id)
@@ -95,12 +131,48 @@ export default async function TeacherFeedbackPage() {
   async function replyToRequest(formData: FormData) {
     'use server'
 
-    const { supabase, user } = await requireTeacherOrAdmin()
+    const { supabase, user, profile } = await requireTeacherOrAdmin()
+    const serviceSupabase = createServiceRoleClient()
+    const isAdmin = profile.role === 'admin'
 
     const requestId = Number(formData.get('request_id'))
     const teacherFeedback = String(formData.get('teacher_feedback') || '').trim()
 
     if (!requestId || !teacherFeedback) {
+      redirect('/teacher/feedback')
+    }
+
+    const { data: existingRequest } = await serviceSupabase
+      .from('feedback_requests')
+      .select('id, lesson_id, user_id, status')
+      .eq('id', requestId)
+      .maybeSingle()
+
+    if (!existingRequest) {
+      redirect('/teacher/feedback')
+    }
+
+    const { data: lesson } = await serviceSupabase
+      .from('lessons')
+      .select('id, slug, title, course_id')
+      .eq('id', existingRequest.lesson_id)
+      .maybeSingle()
+
+    if (!lesson) {
+      redirect('/teacher/feedback')
+    }
+
+    const { data: course } = await serviceSupabase
+      .from('courses')
+      .select('id, teacher_id')
+      .eq('id', lesson.course_id)
+      .maybeSingle()
+
+    if (!course) {
+      redirect('/teacher/feedback')
+    }
+
+    if (!isAdmin && course.teacher_id !== user.id) {
       redirect('/teacher/feedback')
     }
 
@@ -115,18 +187,68 @@ export default async function TeacherFeedbackPage() {
       })
       .eq('id', requestId)
 
+    try {
+      await createStudentFeedbackNotification({
+        studentId: existingRequest.user_id,
+        lessonSlug: lesson.slug,
+        lessonTitle: lesson.title,
+        type: 'feedback_reviewed',
+        teacherFeedback,
+      })
+    } catch (notificationError) {
+      console.error('Student feedback notification error:', notificationError)
+    }
+
     revalidatePath('/teacher/feedback')
+    revalidatePath('/dashboard')
+    revalidatePath(`/lessons/${lesson.slug}`)
     redirect('/teacher/feedback')
   }
 
   async function closeRequest(formData: FormData) {
     'use server'
 
-    const { supabase } = await requireTeacherOrAdmin()
+    const { supabase, user, profile } = await requireTeacherOrAdmin()
+    const serviceSupabase = createServiceRoleClient()
+    const isAdmin = profile.role === 'admin'
 
     const requestId = Number(formData.get('request_id'))
 
     if (!requestId) {
+      redirect('/teacher/feedback')
+    }
+
+    const { data: existingRequest } = await serviceSupabase
+      .from('feedback_requests')
+      .select('id, lesson_id, user_id')
+      .eq('id', requestId)
+      .maybeSingle()
+
+    if (!existingRequest) {
+      redirect('/teacher/feedback')
+    }
+
+    const { data: lesson } = await serviceSupabase
+      .from('lessons')
+      .select('id, slug, title, course_id')
+      .eq('id', existingRequest.lesson_id)
+      .maybeSingle()
+
+    if (!lesson) {
+      redirect('/teacher/feedback')
+    }
+
+    const { data: course } = await serviceSupabase
+      .from('courses')
+      .select('id, teacher_id')
+      .eq('id', lesson.course_id)
+      .maybeSingle()
+
+    if (!course) {
+      redirect('/teacher/feedback')
+    }
+
+    if (!isAdmin && course.teacher_id !== user.id) {
       redirect('/teacher/feedback')
     }
 
@@ -138,7 +260,20 @@ export default async function TeacherFeedbackPage() {
       })
       .eq('id', requestId)
 
+    try {
+      await createStudentFeedbackNotification({
+        studentId: existingRequest.user_id,
+        lessonSlug: lesson.slug,
+        lessonTitle: lesson.title,
+        type: 'feedback_closed',
+      })
+    } catch (notificationError) {
+      console.error('Student feedback close notification error:', notificationError)
+    }
+
     revalidatePath('/teacher/feedback')
+    revalidatePath('/dashboard')
+    revalidatePath(`/lessons/${lesson.slug}`)
     redirect('/teacher/feedback')
   }
 
@@ -232,8 +367,8 @@ export default async function TeacherFeedbackPage() {
                       request.status === 'reviewed'
                         ? 'bg-green-100 text-green-700'
                         : request.status === 'closed'
-                        ? 'bg-slate-100 text-slate-700'
-                        : 'bg-amber-100 text-amber-700'
+                          ? 'bg-slate-100 text-slate-700'
+                          : 'bg-amber-100 text-amber-700'
                     }`}
                   >
                     {request.status}

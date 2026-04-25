@@ -6,6 +6,8 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
+type CourseStatus = 'draft' | 'published' | 'archived'
+
 type TeacherCourseFormProps = {
   mode: 'create' | 'edit'
   ownerId: string
@@ -16,8 +18,25 @@ type TeacherCourseFormProps = {
     description: string
     is_free: boolean
     is_published: boolean
+    status?: CourseStatus | null
+    enrollment_opens_at?: string | null
+    enrollment_closes_at?: string | null
+    course_starts_at?: string | null
+    course_ends_at?: string | null
+    recommended_duration_label?: string | null
   }
 }
+
+const DURATION_OPTIONS = [
+  '',
+  '1 week',
+  '2 weeks',
+  '1 month',
+  '2 months',
+  '3 months',
+  '6 months',
+  '1 year',
+]
 
 function slugify(value: string) {
   return value
@@ -26,6 +45,27 @@ function slugify(value: string) {
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
+}
+
+function toDateTimeLocal(value?: string | null) {
+  if (!value) return ''
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  const offsetMs = date.getTimezoneOffset() * 60 * 1000
+  const localDate = new Date(date.getTime() - offsetMs)
+
+  return localDate.toISOString().slice(0, 16)
+}
+
+function toIsoOrNull(value: string) {
+  if (!value.trim()) return null
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+
+  return date.toISOString()
 }
 
 export default function TeacherCourseForm({
@@ -41,9 +81,29 @@ export default function TeacherCourseForm({
   const [slug, setSlug] = useState(initialValues?.slug ?? '')
   const [description, setDescription] = useState(initialValues?.description ?? '')
   const [isFree, setIsFree] = useState(initialValues?.is_free ?? true)
-  const [isPublished, setIsPublished] = useState(
-    initialValues?.is_published ?? false
+
+  const [status, setStatus] = useState<CourseStatus>(
+    initialValues?.status ??
+      (initialValues?.is_published ? 'published' : 'draft')
   )
+
+  const [recommendedDurationLabel, setRecommendedDurationLabel] = useState(
+    initialValues?.recommended_duration_label ?? ''
+  )
+
+  const [enrollmentOpensAt, setEnrollmentOpensAt] = useState(
+    toDateTimeLocal(initialValues?.enrollment_opens_at)
+  )
+  const [enrollmentClosesAt, setEnrollmentClosesAt] = useState(
+    toDateTimeLocal(initialValues?.enrollment_closes_at)
+  )
+  const [courseStartsAt, setCourseStartsAt] = useState(
+    toDateTimeLocal(initialValues?.course_starts_at)
+  )
+  const [courseEndsAt, setCourseEndsAt] = useState(
+    toDateTimeLocal(initialValues?.course_ends_at)
+  )
+
   const [loading, setLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   const [slugTouched, setSlugTouched] = useState(Boolean(initialValues?.slug))
@@ -61,6 +121,7 @@ export default function TeacherCourseForm({
 
     const cleanTitle = title.trim()
     const cleanSlug = slugify(slug)
+    const cleanDescription = description.trim()
 
     if (!cleanTitle) {
       setErrorMessage('Course title is required.')
@@ -74,12 +135,39 @@ export default function TeacherCourseForm({
       return
     }
 
+    const enrollmentOpensIso = toIsoOrNull(enrollmentOpensAt)
+    const enrollmentClosesIso = toIsoOrNull(enrollmentClosesAt)
+    const courseStartsIso = toIsoOrNull(courseStartsAt)
+    const courseEndsIso = toIsoOrNull(courseEndsAt)
+
+    if (
+      enrollmentOpensIso &&
+      enrollmentClosesIso &&
+      enrollmentOpensIso > enrollmentClosesIso
+    ) {
+      setErrorMessage('Enrollment closing date must be after the opening date.')
+      setLoading(false)
+      return
+    }
+
+    if (courseStartsIso && courseEndsIso && courseStartsIso > courseEndsIso) {
+      setErrorMessage('Course end date must be after the start date.')
+      setLoading(false)
+      return
+    }
+
     const payload = {
       title: cleanTitle,
       slug: cleanSlug,
-      description: description.trim(),
+      description: cleanDescription || null,
       is_free: isFree,
-      is_published: isPublished,
+      status,
+      is_published: status === 'published',
+      enrollment_opens_at: enrollmentOpensIso,
+      enrollment_closes_at: enrollmentClosesIso,
+      course_starts_at: courseStartsIso,
+      course_ends_at: courseEndsIso,
+      recommended_duration_label: recommendedDurationLabel || null,
     }
 
     if (mode === 'create') {
@@ -115,7 +203,7 @@ export default function TeacherCourseForm({
       onSubmit={handleSubmit}
       className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"
     >
-      <div className="space-y-5">
+      <div className="space-y-6">
         <div>
           <label className="mb-2 block text-sm font-medium text-slate-700">
             Course title
@@ -159,6 +247,49 @@ export default function TeacherCourseForm({
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Course lifecycle
+            </label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as CourseStatus)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+            >
+              <option value="draft">Draft</option>
+              <option value="published">Published</option>
+              <option value="archived">Archived</option>
+            </select>
+
+            <p className="mt-2 text-sm text-slate-500">
+              Published courses stay visible to students. Archived courses stay
+              hidden from normal browsing.
+            </p>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Recommended duration
+            </label>
+            <select
+              value={recommendedDurationLabel}
+              onChange={(e) => setRecommendedDurationLabel(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+            >
+              {DURATION_OPTIONS.map((option) => (
+                <option key={option || 'none'} value={option}>
+                  {option || 'No duration set'}
+                </option>
+              ))}
+            </select>
+
+            <p className="mt-2 text-sm text-slate-500">
+              This is a planning label for now, not a hard deadline yet.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
           <label className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4">
             <input
               type="checkbox"
@@ -172,18 +303,65 @@ export default function TeacherCourseForm({
             </div>
           </label>
 
-          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4">
+          <div className="rounded-2xl border border-slate-200 p-4">
+            <p className="font-medium text-slate-900">Visibility rule</p>
+            <p className="mt-1 text-sm text-slate-500">
+              The course is student-visible only when lifecycle is set to
+              published.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Enrollment opens
+            </label>
             <input
-              type="checkbox"
-              checked={isPublished}
-              onChange={(e) => setIsPublished(e.target.checked)}
-              className="h-4 w-4"
+              type="datetime-local"
+              value={enrollmentOpensAt}
+              onChange={(e) => setEnrollmentOpensAt(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
             />
-            <div>
-              <p className="font-medium text-slate-900">Published</p>
-              <p className="text-sm text-slate-500">Visible to students</p>
-            </div>
-          </label>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Enrollment closes
+            </label>
+            <input
+              type="datetime-local"
+              value={enrollmentClosesAt}
+              onChange={(e) => setEnrollmentClosesAt(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+            />
+          </div>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Course starts
+            </label>
+            <input
+              type="datetime-local"
+              value={courseStartsAt}
+              onChange={(e) => setCourseStartsAt(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+            />
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Course ends
+            </label>
+            <input
+              type="datetime-local"
+              value={courseEndsAt}
+              onChange={(e) => setCourseEndsAt(e.target.value)}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+            />
+          </div>
         </div>
       </div>
 
@@ -202,8 +380,8 @@ export default function TeacherCourseForm({
           {loading
             ? 'Saving...'
             : mode === 'create'
-            ? 'Create course'
-            : 'Save changes'}
+              ? 'Create course'
+              : 'Save changes'}
         </button>
 
         <Link

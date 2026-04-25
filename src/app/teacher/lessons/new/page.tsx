@@ -1,10 +1,19 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
+import CourseModuleSelect from '@/components/teacher/course-module-select'
 
 type Course = {
   id: number
   title: string
+}
+
+type Module = {
+  id: number
+  course_id: number
+  title: string
+  position: number
+  is_published: boolean
 }
 
 function slugify(value: string) {
@@ -32,6 +41,20 @@ export default async function NewTeacherLessonPage() {
         .order('title', { ascending: true })
 
   const courses = (coursesData ?? []) as Course[]
+  const courseIds = courses.map((course) => course.id)
+
+  let modules: Module[] = []
+
+  if (courseIds.length > 0) {
+    const { data: modulesData } = await supabase
+      .from('course_modules')
+      .select('id, course_id, title, position, is_published')
+      .in('course_id', courseIds)
+      .order('course_id', { ascending: true })
+      .order('position', { ascending: true })
+
+    modules = (modulesData ?? []) as Module[]
+  }
 
   async function createLesson(formData: FormData) {
     'use server'
@@ -40,6 +63,9 @@ export default async function NewTeacherLessonPage() {
     const isAdmin = profile.role === 'admin'
 
     const courseId = Number(formData.get('course_id'))
+    const moduleIdRaw = String(formData.get('module_id') || '').trim()
+    const moduleId = moduleIdRaw ? Number(moduleIdRaw) : null
+
     const title = String(formData.get('title') || '').trim()
     const slugValue = String(formData.get('slug') || '').trim()
     const content = String(formData.get('content') || '').trim()
@@ -74,12 +100,25 @@ export default async function NewTeacherLessonPage() {
       redirect('/teacher/lessons')
     }
 
+    if (moduleId) {
+      const { data: targetModule } = await supabase
+        .from('course_modules')
+        .select('id, course_id')
+        .eq('id', moduleId)
+        .maybeSingle()
+
+      if (!targetModule || targetModule.course_id !== courseId) {
+        redirect('/teacher/lessons/new')
+      }
+    }
+
     const cleanSlug = slugify(slugValue || title)
 
     const { data: createdLesson } = await supabase
       .from('lessons')
       .insert({
         course_id: courseId,
+        module_id: moduleId,
         title,
         slug: cleanSlug,
         content,
@@ -119,8 +158,8 @@ export default async function NewTeacherLessonPage() {
         </h2>
 
         <p className="mt-2 text-slate-600">
-          Create the lesson first, then add media and quizzes from the lesson
-          editor.
+          Create the lesson first, choose its course and module, then add media
+          and quizzes from the lesson editor.
         </p>
       </div>
 
@@ -148,24 +187,7 @@ export default async function NewTeacherLessonPage() {
             </h3>
 
             <div className="mt-6 grid gap-5">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Course
-                </label>
-
-                <select
-                  name="course_id"
-                  required
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-                >
-                  <option value="">Choose course</option>
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>
-                      {course.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              <CourseModuleSelect courses={courses} modules={modules} />
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">

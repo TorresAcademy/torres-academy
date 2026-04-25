@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/lib/supabase/client'
 
 type FeedbackRequest = {
   id: number
@@ -23,8 +22,6 @@ export default function FeedbackRequestCard({
   lessonId,
   initialRequest,
 }: FeedbackRequestCardProps) {
-  const supabase = createClient()
-
   const [request, setRequest] = useState<FeedbackRequest | null>(initialRequest)
   const [message, setMessage] = useState(initialRequest?.student_message ?? '')
   const [loading, setLoading] = useState(false)
@@ -44,38 +41,36 @@ export default function FeedbackRequestCard({
       return
     }
 
-    const { data, error } = await supabase
-      .from('feedback_requests')
-      .upsert(
-        {
-          user_id: userId,
-          lesson_id: lessonId,
-          student_message: cleanMessage,
-          status: 'pending',
-          teacher_feedback: null,
-          reviewed_at: null,
-          updated_at: new Date().toISOString(),
+    try {
+      const response = await fetch('/api/feedback-requests', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
         },
-        {
-          onConflict: 'user_id,lesson_id',
-        }
-      )
-      .select(
-        'id, status, student_message, teacher_feedback, created_at, reviewed_at'
-      )
-      .single()
+        body: JSON.stringify({
+          userId,
+          lessonId,
+          studentMessage: cleanMessage,
+        }),
+      })
 
-    if (error) {
-      setErrorMessage(error.message)
+      const result = await response.json()
+
+      if (!response.ok) {
+        setErrorMessage(result.error || 'Could not send feedback request.')
+        setLoading(false)
+        return
+      }
+
+      setRequest(result.request as FeedbackRequest)
+      setSuccessMessage('Feedback request sent to your teacher.')
       setLoading(false)
-      return
+
+      setTimeout(() => setSuccessMessage(''), 2500)
+    } catch {
+      setErrorMessage('Unexpected error. Please try again.')
+      setLoading(false)
     }
-
-    setRequest(data as FeedbackRequest)
-    setSuccessMessage('Feedback request sent to your teacher.')
-    setLoading(false)
-
-    setTimeout(() => setSuccessMessage(''), 2500)
   }
 
   return (
@@ -99,8 +94,8 @@ export default function FeedbackRequestCard({
             request.status === 'reviewed'
               ? 'border-green-200 bg-green-50'
               : request.status === 'closed'
-              ? 'border-slate-200 bg-slate-50'
-              : 'border-amber-200 bg-amber-50'
+                ? 'border-slate-200 bg-slate-50'
+                : 'border-amber-200 bg-amber-50'
           }`}
         >
           <p className="text-sm font-semibold text-slate-900">
@@ -159,8 +154,8 @@ export default function FeedbackRequestCard({
         {loading
           ? 'Sending...'
           : request?.status === 'reviewed'
-          ? 'Ask for another review'
-          : 'Request teacher feedback'}
+            ? 'Ask for another review'
+            : 'Request teacher feedback'}
       </button>
     </div>
   )
