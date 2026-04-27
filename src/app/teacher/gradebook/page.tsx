@@ -1,4 +1,16 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
+import {
+  AlertTriangle,
+  Award,
+  BookOpen,
+  ClipboardCheck,
+  FileSearch,
+  GraduationCap,
+  ShieldAlert,
+  Sparkles,
+  UserRound,
+} from 'lucide-react'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import UserAvatar from '@/components/user-avatar'
@@ -143,19 +155,19 @@ function formatDate(value: string | null) {
 
 function getRiskBadgeClass(riskLevel: RiskLevel) {
   if (riskLevel === 'High') return 'bg-red-100 text-red-700'
-  if (riskLevel === 'Medium') return 'bg-amber-100 text-amber-700'
-  return 'bg-green-100 text-green-700'
+  if (riskLevel === 'Medium') return 'bg-amber-100 text-amber-900'
+  return 'bg-emerald-100 text-emerald-700'
 }
 
 function getRiskCardClass(riskLevel: RiskLevel) {
   if (riskLevel === 'High') return 'border-red-200 bg-red-50'
   if (riskLevel === 'Medium') return 'border-amber-200 bg-amber-50'
-  return 'border-green-200 bg-green-50'
+  return 'border-emerald-200 bg-emerald-50'
 }
 
 function getCertificateBadgeClass(status: CertificateStatus) {
-  if (status === 'Issued') return 'bg-green-100 text-green-700'
-  if (status === 'Ready') return 'bg-blue-100 text-blue-700'
+  if (status === 'Issued') return 'bg-emerald-100 text-emerald-700'
+  if (status === 'Ready') return 'bg-amber-100 text-amber-900'
   if (status === 'Revoked') return 'bg-red-100 text-red-700'
   return 'bg-slate-100 text-slate-700'
 }
@@ -265,6 +277,73 @@ function calculateRisk(input: {
 
 function normalizeSearch(value: string) {
   return value.trim().toLowerCase()
+}
+
+function MetricCard({
+  label,
+  value,
+  icon,
+  tone = 'slate',
+  note,
+}: {
+  label: string
+  value: number | string
+  icon: ReactNode
+  tone?: 'slate' | 'red' | 'amber' | 'emerald' | 'gold'
+  note?: string
+}) {
+  const tones = {
+    slate: {
+      card: 'border-slate-200 bg-white',
+      icon: 'bg-slate-900 text-amber-300',
+      label: 'text-slate-600',
+      value: 'text-slate-900',
+    },
+    red: {
+      card: 'border-red-200 bg-red-50',
+      icon: 'bg-red-600 text-white',
+      label: 'text-red-700',
+      value: 'text-red-700',
+    },
+    amber: {
+      card: 'border-amber-200 bg-amber-50',
+      icon: 'bg-amber-400 text-black',
+      label: 'text-amber-900',
+      value: 'text-amber-900',
+    },
+    emerald: {
+      card: 'border-emerald-200 bg-emerald-50',
+      icon: 'bg-emerald-600 text-white',
+      label: 'text-emerald-700',
+      value: 'text-emerald-700',
+    },
+    gold: {
+      card: 'border-yellow-200 bg-yellow-50',
+      icon: 'bg-yellow-500 text-black',
+      label: 'text-yellow-900',
+      value: 'text-yellow-900',
+    },
+  } as const
+
+  return (
+    <div className={`rounded-3xl border p-5 shadow-sm ${tones[tone].card}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className={`text-sm ${tones[tone].label}`}>{label}</p>
+          <p className={`mt-2 text-3xl font-bold ${tones[tone].value}`}>
+            {value}
+          </p>
+          {note && <p className="mt-1 text-xs text-slate-500">{note}</p>}
+        </div>
+
+        <div
+          className={`flex h-11 w-11 items-center justify-center rounded-2xl ${tones[tone].icon}`}
+        >
+          {icon}
+        </div>
+      </div>
+    </div>
+  )
 }
 
 export default async function TeacherGradebookPage({
@@ -756,86 +835,98 @@ export default async function TeacherGradebookPage({
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-          Gradebook
-        </p>
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+              Gradebook
+            </p>
 
-        <h2 className="mt-2 text-3xl font-bold text-slate-900">
-          Student risk system
-        </h2>
+            <h2 className="mt-2 text-3xl font-bold md:text-4xl">
+              Student risk system
+            </h2>
 
-        <p className="mt-2 text-slate-600">
-          Filter students by course, risk level, or search terms. Submission
-          status is now included alongside progress, quizzes, reflections,
-          feedback, and certificates.
-        </p>
-      </div>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+              Filter students by course, risk level, or search terms. Submission
+              status, certificate readiness, progress, quizzes, reflections, and
+              teacher action queues are all included here.
+            </p>
+          </div>
 
-      <div className="grid gap-6 md:grid-cols-8">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Filtered rows</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">
-            {filteredRows.length}
-          </p>
-          <p className="mt-1 text-xs text-slate-500">
-            Total: {gradebookRows.length}
-          </p>
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-400 text-black">
+                <Sparkles className="h-5 w-5" />
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Premium teacher gradebook
+                </p>
+                <p className="text-sm text-slate-300">
+                  Risk, progress, submissions, and certificates in one place.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <div className="rounded-3xl border border-red-200 bg-red-50 p-6 shadow-sm">
-          <p className="text-sm text-red-700">High risk</p>
-          <p className="mt-2 text-3xl font-bold text-red-700">
-            {highRiskCount}
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
-          <p className="text-sm text-amber-700">Medium risk</p>
-          <p className="mt-2 text-3xl font-bold text-amber-700">
-            {mediumRiskCount}
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-green-200 bg-green-50 p-6 shadow-sm">
-          <p className="text-sm text-green-700">Low risk</p>
-          <p className="mt-2 text-3xl font-bold text-green-700">
-            {lowRiskCount}
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
-          <p className="text-sm text-blue-700">Certs ready</p>
-          <p className="mt-2 text-3xl font-bold text-blue-700">
-            {readyCertificateCount}
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-green-200 bg-green-50 p-6 shadow-sm">
-          <p className="text-sm text-green-700">Certs issued</p>
-          <p className="mt-2 text-3xl font-bold text-green-700">
-            {issuedCertificateCount}
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-amber-200 bg-amber-50 p-6 shadow-sm">
-          <p className="text-sm text-amber-700">Missing required submissions</p>
-          <p className="mt-2 text-3xl font-bold text-amber-700">
-            {missingRequiredSubmissionCount}
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-blue-200 bg-blue-50 p-6 shadow-sm">
-          <p className="text-sm text-blue-700">Pending submission review</p>
-          <p className="mt-2 text-3xl font-bold text-blue-700">
-            {pendingSubmissionReviewCount}
-          </p>
-        </div>
-      </div>
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4 2xl:grid-cols-8">
+        <MetricCard
+          label="Filtered rows"
+          value={filteredRows.length}
+          icon={<UserRound className="h-5 w-5" />}
+          tone="slate"
+          note={`Total: ${gradebookRows.length}`}
+        />
+        <MetricCard
+          label="High risk"
+          value={highRiskCount}
+          icon={<ShieldAlert className="h-5 w-5" />}
+          tone="red"
+        />
+        <MetricCard
+          label="Medium risk"
+          value={mediumRiskCount}
+          icon={<AlertTriangle className="h-5 w-5" />}
+          tone="amber"
+        />
+        <MetricCard
+          label="Low risk"
+          value={lowRiskCount}
+          icon={<ClipboardCheck className="h-5 w-5" />}
+          tone="emerald"
+        />
+        <MetricCard
+          label="Certs ready"
+          value={readyCertificateCount}
+          icon={<Award className="h-5 w-5" />}
+          tone="gold"
+        />
+        <MetricCard
+          label="Certs issued"
+          value={issuedCertificateCount}
+          icon={<GraduationCap className="h-5 w-5" />}
+          tone="emerald"
+        />
+        <MetricCard
+          label="Missing required"
+          value={missingRequiredSubmissionCount}
+          icon={<FileSearch className="h-5 w-5" />}
+          tone="amber"
+        />
+        <MetricCard
+          label="Review queue"
+          value={pendingSubmissionReviewCount}
+          icon={<BookOpen className="h-5 w-5" />}
+          tone="gold"
+        />
+      </section>
 
       <form
         action="/teacher/gradebook"
-        className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+        className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
       >
         <div className="grid gap-4 lg:grid-cols-[1fr_220px_180px_auto_auto] lg:items-end">
           <div>
@@ -846,7 +937,7 @@ export default async function TeacherGradebookPage({
               name="q"
               defaultValue={searchQuery}
               placeholder="Search student, email, course, reason, certificate, submission..."
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
             />
           </div>
 
@@ -857,7 +948,7 @@ export default async function TeacherGradebookPage({
             <select
               name="course"
               defaultValue={selectedCourse}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
             >
               <option value="all">All courses</option>
               {courses.map((course) => (
@@ -875,7 +966,7 @@ export default async function TeacherGradebookPage({
             <select
               name="risk"
               defaultValue={selectedRisk}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
             >
               <option value="all">All risk</option>
               <option value="High">High</option>
@@ -886,14 +977,14 @@ export default async function TeacherGradebookPage({
 
           <button
             type="submit"
-            className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+            className="rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black"
           >
             Apply filters
           </button>
 
           <Link
             href="/teacher/gradebook"
-            className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-center font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+            className="rounded-xl border border-slate-300 bg-white px-5 py-3 text-center font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
           >
             Clear
           </Link>
@@ -909,10 +1000,8 @@ export default async function TeacherGradebookPage({
       </form>
 
       {(pendingFeedbackCount > 0 || pendingSubmissionReviewCount > 0) && (
-        <div className="rounded-3xl border border-blue-200 bg-blue-50 p-5 text-sm text-slate-700">
-          <span className="font-semibold text-slate-900">
-            Teacher action:
-          </span>{' '}
+        <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-5 text-sm text-slate-700 shadow-sm">
+          <span className="font-semibold text-slate-900">Teacher action:</span>{' '}
           The filtered gradebook has {pendingFeedbackCount} pending feedback
           request{pendingFeedbackCount === 1 ? '' : 's'} and{' '}
           {pendingSubmissionReviewCount} submission
@@ -921,7 +1010,7 @@ export default async function TeacherGradebookPage({
       )}
 
       {courses.length === 0 ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <h3 className="text-xl font-bold text-slate-900">
             No courses assigned
           </h3>
@@ -931,7 +1020,7 @@ export default async function TeacherGradebookPage({
           </p>
         </div>
       ) : gradebookRows.length === 0 ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <h3 className="text-xl font-bold text-slate-900">
             No enrolled students yet
           </h3>
@@ -941,7 +1030,7 @@ export default async function TeacherGradebookPage({
           </p>
         </div>
       ) : filteredRows.length === 0 ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <h3 className="text-xl font-bold text-slate-900">
             No results match your filters
           </h3>
@@ -956,7 +1045,7 @@ export default async function TeacherGradebookPage({
           {filteredRows.map((row) => (
             <article
               key={`${row.course.id}-${row.student.id}`}
-              className={`rounded-3xl border p-6 shadow-sm ${getRiskCardClass(
+              className={`rounded-[2rem] border p-6 shadow-sm ${getRiskCardClass(
                 row.riskLevel
               )}`}
             >
@@ -980,7 +1069,7 @@ export default async function TeacherGradebookPage({
                       {row.student.email || 'No email'}
                     </p>
 
-                    <p className="mt-2 text-sm font-semibold text-blue-700">
+                    <p className="mt-2 text-sm font-semibold text-amber-800">
                       {row.course.title}
                     </p>
                   </div>
@@ -988,13 +1077,13 @@ export default async function TeacherGradebookPage({
 
                 <div className="flex flex-wrap gap-2">
                   {row.missingRequiredSubmissions > 0 && (
-                    <span className="rounded-full bg-amber-100 px-4 py-2 text-sm font-bold text-amber-800">
+                    <span className="rounded-full bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">
                       Missing required: {row.missingRequiredSubmissions}
                     </span>
                   )}
 
                   {row.pendingSubmissionReviews > 0 && (
-                    <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-bold text-blue-700">
+                    <span className="rounded-full bg-yellow-100 px-4 py-2 text-sm font-bold text-yellow-900">
                       Review queue: {row.pendingSubmissionReviews}
                     </span>
                   )}
@@ -1017,8 +1106,8 @@ export default async function TeacherGradebookPage({
                 </div>
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-8">
-                <div className="rounded-2xl bg-white/70 p-4">
+              <div className="mt-6 grid gap-4 md:grid-cols-4 xl:grid-cols-8">
+                <div className="rounded-2xl border border-white/70 bg-white/80 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Progress
                   </p>
@@ -1032,7 +1121,7 @@ export default async function TeacherGradebookPage({
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/70 p-4">
+                <div className="rounded-2xl border border-white/70 bg-white/80 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Quiz avg
                   </p>
@@ -1046,7 +1135,7 @@ export default async function TeacherGradebookPage({
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/70 p-4">
+                <div className="rounded-2xl border border-white/70 bg-white/80 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Failed attempts
                   </p>
@@ -1060,7 +1149,7 @@ export default async function TeacherGradebookPage({
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/70 p-4">
+                <div className="rounded-2xl border border-white/70 bg-white/80 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Reflections
                   </p>
@@ -1074,7 +1163,7 @@ export default async function TeacherGradebookPage({
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/70 p-4">
+                <div className="rounded-2xl border border-white/70 bg-white/80 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Feedback
                   </p>
@@ -1088,7 +1177,7 @@ export default async function TeacherGradebookPage({
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/70 p-4">
+                <div className="rounded-2xl border border-white/70 bg-white/80 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Submissions
                   </p>
@@ -1102,7 +1191,7 @@ export default async function TeacherGradebookPage({
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/70 p-4">
+                <div className="rounded-2xl border border-white/70 bg-white/80 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Submission review
                   </p>
@@ -1116,7 +1205,7 @@ export default async function TeacherGradebookPage({
                   </p>
                 </div>
 
-                <div className="rounded-2xl bg-white/70 p-4">
+                <div className="rounded-2xl border border-white/70 bg-white/80 p-4">
                   <p className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
                     Certificate
                   </p>
@@ -1189,14 +1278,14 @@ export default async function TeacherGradebookPage({
               <div className="mt-6 flex flex-wrap gap-3">
                 <Link
                   href={`/teacher/students/${row.student.id}`}
-                  className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700"
+                  className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-amber-300 transition hover:bg-black"
                 >
                   View student
                 </Link>
 
                 <Link
                   href={`/courses/${row.course.slug}`}
-                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                  className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                 >
                   Course overview
                 </Link>
@@ -1204,7 +1293,7 @@ export default async function TeacherGradebookPage({
                 {row.certificateId && (
                   <Link
                     href={`/certificates/${row.certificateId}`}
-                    className="rounded-xl border border-green-300 bg-white px-4 py-2 font-semibold text-green-700 transition hover:bg-green-50"
+                    className="rounded-xl border border-emerald-300 bg-white px-4 py-2 font-semibold text-emerald-700 transition hover:bg-emerald-50"
                   >
                     Open certificate
                   </Link>
@@ -1213,7 +1302,7 @@ export default async function TeacherGradebookPage({
                 {row.certificateCode && (
                   <Link
                     href={`/certificates/verify/${row.certificateCode}`}
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                   >
                     Verify
                   </Link>
@@ -1222,7 +1311,7 @@ export default async function TeacherGradebookPage({
                 {row.pendingFeedback > 0 && (
                   <Link
                     href="/teacher/feedback"
-                    className="rounded-xl border border-blue-300 bg-white px-4 py-2 font-semibold text-blue-700 transition hover:bg-blue-50"
+                    className="rounded-xl border border-amber-300 bg-white px-4 py-2 font-semibold text-amber-900 transition hover:bg-amber-50"
                   >
                     Review feedback
                   </Link>

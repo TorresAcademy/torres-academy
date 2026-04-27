@@ -1,6 +1,14 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import {
+  CheckCircle2,
+  ClipboardList,
+  PlusCircle,
+  Sparkles,
+  Trash2,
+} from 'lucide-react'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 
 type QuizPageProps = {
@@ -29,6 +37,57 @@ type Option = {
   option_text: string
   is_correct: boolean
   position: number
+}
+
+function SectionCard({
+  title,
+  description,
+  icon,
+  children,
+}: {
+  title: string
+  description?: string
+  icon: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h3 className="text-2xl font-bold text-slate-900">{title}</h3>
+          {description && (
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              {description}
+            </p>
+          )}
+        </div>
+
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+          {icon}
+        </div>
+      </div>
+
+      <div className="mt-6">{children}</div>
+    </section>
+  )
+}
+
+function InfoCard({
+  label,
+  value,
+  note,
+}: {
+  label: string
+  value: string | number
+  note?: string
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
+      {note && <p className="mt-1 text-xs text-slate-500">{note}</p>}
+    </div>
+  )
 }
 
 export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
@@ -231,111 +290,144 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
     redirect(`/teacher/lessons/${lessonId}/quiz`)
   }
 
+  const totalQuestions = questions.length
+  const publishedQuizzes = quizzes.filter((quiz) => quiz.is_published).length
+
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/teacher/lessons"
-          className="text-sm font-medium text-blue-600 underline"
+          className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
         >
           ← Back to lessons
         </Link>
-
-        <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-          Quiz Builder
-        </p>
-
-        <h2 className="mt-2 text-3xl font-bold text-slate-900">
-          {lesson.title}
-        </h2>
-
-        <p className="mt-2 text-slate-600">
-          Create middle-lesson quizzes and final quizzes. Final quizzes should
-          use a 90% passing score.
-        </p>
       </div>
 
-      <form
-        action={createQuiz}
-        className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"
-      >
-        <h3 className="text-2xl font-bold text-slate-900">Create quiz</h3>
-
-        <div className="mt-6 grid gap-4 md:grid-cols-2">
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-6">
           <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Quiz title
-            </label>
-            <input
-              name="title"
-              required
-              placeholder="Final lesson quiz"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-            />
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+              Quiz Builder
+            </p>
+
+            <h2 className="mt-2 text-3xl font-bold md:text-4xl">
+              {lesson.title}
+            </h2>
+
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+              Create middle-lesson quizzes and final quizzes. Final quizzes should
+              normally use a 90% passing score.
+            </p>
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Quiz type
-            </label>
-            <select
-              name="quiz_type"
-              defaultValue="final"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-            >
-              <option value="middle">Middle lesson quiz</option>
-              <option value="final">Final lesson quiz</option>
-            </select>
-          </div>
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-400 text-black">
+                <Sparkles className="h-5 w-5" />
+              </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Pass percentage
-            </label>
-            <input
-              name="pass_percentage"
-              type="number"
-              min="1"
-              max="100"
-              defaultValue="90"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-700">
-              Position
-            </label>
-            <input
-              name="position"
-              type="number"
-              min="1"
-              defaultValue="1"
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-            />
-          </div>
-
-          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4 md:col-span-2">
-            <input name="is_published" type="checkbox" className="h-4 w-4" />
-            <div>
-              <p className="font-medium text-slate-900">Published</p>
-              <p className="text-sm text-slate-500">
-                Students can only take published quizzes.
-              </p>
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Premium quiz builder
+                </p>
+                <p className="text-sm text-slate-300">
+                  Build assessments with clear structure and review.
+                </p>
+              </div>
             </div>
-          </label>
+          </div>
         </div>
+      </section>
 
-        <button
-          type="submit"
-          className="mt-6 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
-        >
-          Create quiz
-        </button>
-      </form>
+      <section className="grid gap-4 md:grid-cols-3">
+        <InfoCard label="Quizzes" value={quizzes.length} />
+        <InfoCard label="Published quizzes" value={publishedQuizzes} />
+        <InfoCard label="Total questions" value={totalQuestions} />
+      </section>
+
+      <SectionCard
+        title="Create quiz"
+        description="Set the quiz type, passing score, position, and visibility."
+        icon={<PlusCircle className="h-5 w-5" />}
+      >
+        <form action={createQuiz}>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Quiz title
+              </label>
+              <input
+                name="title"
+                required
+                placeholder="Final lesson quiz"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Quiz type
+              </label>
+              <select
+                name="quiz_type"
+                defaultValue="final"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
+              >
+                <option value="middle">Middle lesson quiz</option>
+                <option value="final">Final lesson quiz</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Pass percentage
+              </label>
+              <input
+                name="pass_percentage"
+                type="number"
+                min="1"
+                max="100"
+                defaultValue="90"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Position
+              </label>
+              <input
+                name="position"
+                type="number"
+                min="1"
+                defaultValue="1"
+                className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
+              />
+            </div>
+
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4 md:col-span-2">
+              <input name="is_published" type="checkbox" className="h-4 w-4" />
+              <div>
+                <p className="font-medium text-slate-900">Published</p>
+                <p className="text-sm text-slate-500">
+                  Students can only take published quizzes.
+                </p>
+              </div>
+            </label>
+          </div>
+
+          <button
+            type="submit"
+            className="mt-6 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black"
+          >
+            Create quiz
+          </button>
+        </form>
+      </SectionCard>
 
       {quizzes.length === 0 ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <p className="text-slate-700">No quizzes created for this lesson yet.</p>
         </div>
       ) : (
@@ -348,7 +440,7 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
             return (
               <section
                 key={quiz.id}
-                className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"
+                className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
@@ -357,15 +449,15 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
                         {quiz.title}
                       </h3>
 
-                      <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
                         {quiz.quiz_type}
                       </span>
 
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold ${
                           quiz.is_published
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-amber-100 text-amber-700'
+                            ? 'bg-emerald-100 text-emerald-700'
+                            : 'bg-amber-100 text-amber-900'
                         }`}
                       >
                         {quiz.is_published ? 'Published' : 'Draft'}
@@ -373,8 +465,7 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
                     </div>
 
                     <p className="mt-2 text-slate-600">
-                      Pass score: {quiz.pass_percentage}% · Position:{' '}
-                      {quiz.position}
+                      Pass score: {quiz.pass_percentage}% · Position: {quiz.position}
                     </p>
                   </div>
 
@@ -382,8 +473,9 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
                     <input type="hidden" name="quiz_id" value={quiz.id} />
                     <button
                       type="submit"
-                      className="rounded-xl border border-red-300 px-4 py-2 font-semibold text-red-700 transition hover:bg-red-50"
+                      className="inline-flex items-center gap-2 rounded-xl border border-red-300 px-4 py-2 font-semibold text-red-700 transition hover:bg-red-50"
                     >
+                      <Trash2 className="h-4 w-4" />
                       Delete quiz
                     </button>
                   </form>
@@ -391,15 +483,20 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
 
                 <form
                   action={addQuestion}
-                  className="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                  className="mt-8 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5"
                 >
                   <input type="hidden" name="quiz_id" value={quiz.id} />
 
-                  <h4 className="text-lg font-bold text-slate-900">
-                    Add question
-                  </h4>
+                  <div className="mb-4 flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+                      <PlusCircle className="h-4 w-4" />
+                    </div>
+                    <h4 className="text-lg font-bold text-slate-900">
+                      Add question
+                    </h4>
+                  </div>
 
-                  <div className="mt-4 grid gap-4">
+                  <div className="grid gap-4">
                     <div>
                       <label className="mb-2 block text-sm font-medium text-slate-700">
                         Question
@@ -408,7 +505,7 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
                         name="question"
                         required
                         rows={3}
-                        className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                        className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                         placeholder="Write the question..."
                       />
                     </div>
@@ -422,7 +519,7 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
                           <input
                             name={`option_${number}`}
                             required={number <= 2}
-                            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                             placeholder={`Answer option ${number}`}
                           />
                         </div>
@@ -436,7 +533,7 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
                       <select
                         name="correct_option"
                         defaultValue="1"
-                        className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                        className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                       >
                         <option value="1">Option 1</option>
                         <option value="2">Option 2</option>
@@ -454,28 +551,29 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
                         type="number"
                         min="1"
                         defaultValue={quizQuestions.length + 1}
-                        className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                        className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                       />
                     </div>
                   </div>
 
                   <button
                     type="submit"
-                    className="mt-5 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+                    className="mt-5 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black"
                   >
                     Add question
                   </button>
                 </form>
 
                 <div className="mt-8">
-                  <h4 className="text-lg font-bold text-slate-900">
-                    Questions
-                  </h4>
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+                      <ClipboardList className="h-4 w-4" />
+                    </div>
+                    <h4 className="text-lg font-bold text-slate-900">Questions</h4>
+                  </div>
 
                   {quizQuestions.length === 0 ? (
-                    <p className="mt-4 text-slate-600">
-                      No questions added yet.
-                    </p>
+                    <p className="mt-4 text-slate-600">No questions added yet.</p>
                   ) : (
                     <div className="mt-4 space-y-4">
                       {quizQuestions.map((question) => {
@@ -506,8 +604,9 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
                                 />
                                 <button
                                   type="submit"
-                                  className="rounded-xl border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
+                                  className="inline-flex items-center gap-2 rounded-xl border border-red-300 px-3 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
                                 >
+                                  <Trash2 className="h-4 w-4" />
                                   Delete
                                 </button>
                               </form>
@@ -519,14 +618,15 @@ export default async function TeacherLessonQuizPage({ params }: QuizPageProps) {
                                   key={option.id}
                                   className={`rounded-xl border px-4 py-3 text-sm ${
                                     option.is_correct
-                                      ? 'border-green-200 bg-green-50 text-green-800'
+                                      ? 'border-emerald-200 bg-emerald-50 text-emerald-800'
                                       : 'border-slate-200 bg-white text-slate-700'
                                   }`}
                                 >
                                   {option.option_text}
                                   {option.is_correct && (
-                                    <span className="ml-2 font-semibold">
-                                      ✓ correct
+                                    <span className="ml-2 inline-flex items-center gap-1 font-semibold">
+                                      <CheckCircle2 className="h-4 w-4" />
+                                      correct
                                     </span>
                                   )}
                                 </div>

@@ -2,6 +2,16 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import {
+  BookOpen,
+  CalendarDays,
+  Eye,
+  FolderOpen,
+  Pencil,
+  PlusCircle,
+  Sparkles,
+  Trash2,
+} from 'lucide-react'
 import TeacherCourseForm from '@/components/teacher/teacher-course-form'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 
@@ -10,19 +20,19 @@ type TeacherEditCoursePageProps = {
 }
 
 type Lesson = {
-  id: number
+  id: string | number
   title: string
   slug: string
   position: number
   is_published: boolean | null
-  module_id: number | null
+  module_id: string | number | null
 }
 
 type CourseStatus = 'draft' | 'published' | 'archived'
 
 type Module = {
-  id: number
-  course_id: number
+  id: string | number
+  course_id: string | number
   title: string
   description: string | null
   position: number
@@ -66,6 +76,24 @@ function formatDate(value?: string | null) {
   }).format(date)
 }
 
+function MetricCard({
+  label,
+  value,
+  note,
+}: {
+  label: string
+  value: number | string
+  note?: string
+}) {
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-sm text-slate-500">{label}</p>
+      <p className="mt-2 text-3xl font-bold text-slate-900">{value}</p>
+      {note && <p className="mt-1 text-xs text-slate-500">{note}</p>}
+    </div>
+  )
+}
+
 export default async function TeacherEditCoursePage({
   params,
 }: TeacherEditCoursePageProps) {
@@ -73,9 +101,12 @@ export default async function TeacherEditCoursePage({
   const { supabase, user, profile } = await requireTeacherOrAdmin()
   const isAdmin = profile.role === 'admin'
 
-  const courseId = Number(id)
+  // IMPORTANT:
+  // Keep the route param as a string. This prevents false 404s when Supabase IDs
+  // are UUID/text values. Supabase can still compare numeric IDs from a string URL.
+  const courseId = String(id || '').trim()
 
-  if (!courseId || Number.isNaN(courseId)) {
+  if (!courseId) {
     notFound()
   }
 
@@ -153,7 +184,7 @@ export default async function TeacherEditCoursePage({
     }
 
     await supabase.from('course_modules').insert({
-      course_id: courseId,
+      course_id: courseCheck.id,
       title,
       description: description || null,
       position: position || 1,
@@ -163,8 +194,9 @@ export default async function TeacherEditCoursePage({
       updated_at: new Date().toISOString(),
     })
 
-    revalidatePath(`/teacher/courses/${courseId}/edit`)
+    revalidatePath(`/teacher/courses/${courseCheck.id}/edit`)
     revalidatePath(`/courses/${courseCheck.slug}`)
+    redirect(`/teacher/courses/${courseCheck.id}/edit`)
   }
 
   async function updateModule(formData: FormData) {
@@ -173,7 +205,7 @@ export default async function TeacherEditCoursePage({
     const { supabase, user, profile } = await requireTeacherOrAdmin()
     const isAdmin = profile.role === 'admin'
 
-    const moduleId = Number(formData.get('module_id'))
+    const moduleId = String(formData.get('module_id') || '').trim()
     const title = String(formData.get('title') || '').trim()
     const description = String(formData.get('description') || '').trim()
     const position = Number(formData.get('position') || 1)
@@ -181,7 +213,7 @@ export default async function TeacherEditCoursePage({
     const releaseAtRaw = String(formData.get('release_at') || '').trim()
     const dueAtRaw = String(formData.get('due_at') || '').trim()
 
-    if (!moduleId || Number.isNaN(moduleId) || !title) {
+    if (!moduleId || !title) {
       redirect(`/teacher/courses/${courseId}/edit`)
     }
 
@@ -231,6 +263,7 @@ export default async function TeacherEditCoursePage({
 
     revalidatePath(`/teacher/courses/${courseCheck.id}/edit`)
     revalidatePath(`/courses/${courseCheck.slug}`)
+    redirect(`/teacher/courses/${courseCheck.id}/edit`)
   }
 
   async function toggleModulePublished(formData: FormData) {
@@ -239,10 +272,10 @@ export default async function TeacherEditCoursePage({
     const { supabase, user, profile } = await requireTeacherOrAdmin()
     const isAdmin = profile.role === 'admin'
 
-    const moduleId = Number(formData.get('module_id'))
+    const moduleId = String(formData.get('module_id') || '').trim()
     const nextPublished = formData.get('next_published') === 'true'
 
-    if (!moduleId || Number.isNaN(moduleId)) return
+    if (!moduleId) return
 
     const { data: moduleRow } = await supabase
       .from('course_modules')
@@ -282,9 +315,9 @@ export default async function TeacherEditCoursePage({
     const { supabase, user, profile } = await requireTeacherOrAdmin()
     const isAdmin = profile.role === 'admin'
 
-    const moduleId = Number(formData.get('module_id'))
+    const moduleId = String(formData.get('module_id') || '').trim()
 
-    if (!moduleId || Number.isNaN(moduleId)) return
+    if (!moduleId) return
 
     const { data: moduleRow } = await supabase
       .from('course_modules')
@@ -312,20 +345,67 @@ export default async function TeacherEditCoursePage({
     revalidatePath(`/courses/${courseCheck.slug}`)
   }
 
+  const publishedLessonsCount = lessons.filter((lesson) => lesson.is_published).length
+  const publishedModulesCount = modules.filter((module) => module.is_published).length
+
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-          Courses
-        </p>
-        <h2 className="mt-2 text-3xl font-bold text-slate-900">
-          Edit course
-        </h2>
-        <p className="mt-2 text-slate-600">
-          Update course details, lifecycle, modules, pacing dates, seasonal
-          dates, and lesson structure.
-        </p>
-      </div>
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+              Courses
+            </p>
+
+            <h2 className="mt-2 text-3xl font-bold md:text-4xl">
+              Edit course
+            </h2>
+
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+              Update course details, lifecycle, seasonal dates, pacing modules,
+              and lesson structure inside the premium teacher workspace.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-400 text-black">
+                  <Sparkles className="h-5 w-5" />
+                </div>
+
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Premium course editor
+                  </p>
+                  <p className="text-sm text-slate-300">
+                    Structure, pace, and refine your course.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Link
+              href={`/courses/${course.slug}`}
+              className="inline-flex items-center gap-2 rounded-xl border border-white/15 bg-white/5 px-5 py-3 font-semibold text-white transition hover:bg-white/10 hover:text-amber-300"
+            >
+              <Eye className="h-4 w-4" />
+              View public page
+            </Link>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Modules" value={modules.length} />
+        <MetricCard label="Published modules" value={publishedModulesCount} />
+        <MetricCard label="Lessons" value={lessons.length} />
+        <MetricCard
+          label="Published lessons"
+          value={publishedLessonsCount}
+          note={`Course slug: ${course.slug}`}
+        />
+      </section>
 
       <TeacherCourseForm
         mode="edit"
@@ -347,7 +427,7 @@ export default async function TeacherEditCoursePage({
         }}
       />
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 className="text-2xl font-bold text-slate-900">Course modules</h3>
@@ -360,8 +440,20 @@ export default async function TeacherEditCoursePage({
 
         <form
           action={createModule}
-          className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5"
+          className="mt-6 rounded-[2rem] border border-slate-200 bg-slate-50 p-5"
         >
+          <div className="mb-5 flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+              <PlusCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">Create module</p>
+              <p className="text-sm text-slate-500">
+                Add a module to structure pacing and lesson grouping.
+              </p>
+            </div>
+          </div>
+
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -371,7 +463,7 @@ export default async function TeacherEditCoursePage({
                 name="title"
                 required
                 placeholder="Module 1: Foundations"
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
               />
             </div>
 
@@ -384,7 +476,7 @@ export default async function TeacherEditCoursePage({
                 type="number"
                 min="1"
                 defaultValue={modules.length + 1}
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
               />
             </div>
           </div>
@@ -397,7 +489,7 @@ export default async function TeacherEditCoursePage({
               name="description"
               rows={4}
               placeholder="Optional module overview..."
-              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
             />
           </div>
 
@@ -409,7 +501,7 @@ export default async function TeacherEditCoursePage({
               <input
                 name="release_at"
                 type="datetime-local"
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
               />
               <p className="mt-2 text-xs text-slate-500">
                 Optional. Shows when this module should open.
@@ -423,7 +515,7 @@ export default async function TeacherEditCoursePage({
               <input
                 name="due_at"
                 type="datetime-local"
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
               />
               <p className="mt-2 text-xs text-slate-500">
                 Optional. Shows the recommended deadline for this module.
@@ -448,7 +540,7 @@ export default async function TeacherEditCoursePage({
 
           <button
             type="submit"
-            className="mt-5 rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+            className="mt-5 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black"
           >
             Create module
           </button>
@@ -463,13 +555,13 @@ export default async function TeacherEditCoursePage({
           <div className="mt-6 space-y-4">
             {modules.map((module) => {
               const moduleLessons = lessons.filter(
-                (lesson) => lesson.module_id === module.id
+                (lesson) => String(lesson.module_id) === String(module.id)
               )
 
               return (
                 <div
                   key={module.id}
-                  className="rounded-2xl border border-slate-200 p-5"
+                  className="rounded-[2rem] border border-slate-200 p-5"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
@@ -490,8 +582,8 @@ export default async function TeacherEditCoursePage({
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-semibold ${
                             module.is_published
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-amber-100 text-amber-700'
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-amber-100 text-amber-900'
                           }`}
                         >
                           {module.is_published ? 'Published' : 'Draft'}
@@ -503,13 +595,13 @@ export default async function TeacherEditCoursePage({
                         </span>
 
                         {module.release_at && (
-                          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                          <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-900">
                             Opens: {formatDate(module.release_at)}
                           </span>
                         )}
 
                         {module.due_at && (
-                          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                          <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
                             Due: {formatDate(module.due_at)}
                           </span>
                         )}
@@ -526,7 +618,7 @@ export default async function TeacherEditCoursePage({
                         />
                         <button
                           type="submit"
-                          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:bg-slate-800"
+                          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-amber-300 transition hover:bg-black"
                         >
                           {module.is_published ? 'Unpublish' : 'Publish'}
                         </button>
@@ -536,8 +628,9 @@ export default async function TeacherEditCoursePage({
                         <input type="hidden" name="module_id" value={module.id} />
                         <button
                           type="submit"
-                          className="rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
+                          className="inline-flex items-center gap-2 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-red-700"
                         >
+                          <Trash2 className="h-4 w-4" />
                           Delete
                         </button>
                       </form>
@@ -546,7 +639,7 @@ export default async function TeacherEditCoursePage({
 
                   <form
                     action={updateModule}
-                    className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                    className="mt-5 rounded-[1.5rem] border border-slate-200 bg-slate-50 p-4"
                   >
                     <input type="hidden" name="module_id" value={module.id} />
 
@@ -559,7 +652,7 @@ export default async function TeacherEditCoursePage({
                           name="title"
                           defaultValue={module.title}
                           required
-                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
                         />
                       </div>
 
@@ -572,7 +665,7 @@ export default async function TeacherEditCoursePage({
                           type="number"
                           min="1"
                           defaultValue={module.position}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
                         />
                       </div>
                     </div>
@@ -585,7 +678,7 @@ export default async function TeacherEditCoursePage({
                         name="description"
                         rows={3}
                         defaultValue={module.description ?? ''}
-                        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                        className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
                       />
                     </div>
 
@@ -598,7 +691,7 @@ export default async function TeacherEditCoursePage({
                           name="release_at"
                           type="datetime-local"
                           defaultValue={toDateTimeLocal(module.release_at)}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
                         />
                       </div>
 
@@ -610,7 +703,7 @@ export default async function TeacherEditCoursePage({
                           name="due_at"
                           type="datetime-local"
                           defaultValue={toDateTimeLocal(module.due_at)}
-                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                          className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
                         />
                       </div>
                     </div>
@@ -632,8 +725,9 @@ export default async function TeacherEditCoursePage({
 
                     <button
                       type="submit"
-                      className="mt-4 rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700"
+                      className="mt-4 inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 font-semibold text-amber-300 transition hover:bg-black"
                     >
+                      <Pencil className="h-4 w-4" />
                       Save module details
                     </button>
                   </form>
@@ -656,7 +750,7 @@ export default async function TeacherEditCoursePage({
 
                           <Link
                             href={`/teacher/lessons/${lesson.id}/edit`}
-                            className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                            className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                           >
                             Edit lesson
                           </Link>
@@ -669,9 +763,9 @@ export default async function TeacherEditCoursePage({
             })}
           </div>
         )}
-      </div>
+      </section>
 
-      <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h3 className="text-2xl font-bold text-slate-900">Course lessons</h3>
@@ -682,8 +776,9 @@ export default async function TeacherEditCoursePage({
 
           <Link
             href="/teacher/lessons/new"
-            className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black"
           >
+            <PlusCircle className="h-4 w-4" />
             New lesson
           </Link>
         </div>
@@ -693,29 +788,37 @@ export default async function TeacherEditCoursePage({
         ) : (
           <div className="mt-6 space-y-4">
             {lessons.map((lesson) => {
-              const module = modules.find((item) => item.id === lesson.module_id)
+              const module = modules.find(
+                (item) => String(item.id) === String(lesson.module_id)
+              )
 
               return (
                 <div
                   key={lesson.id}
-                  className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4"
+                  className="flex flex-wrap items-center justify-between gap-4 rounded-[1.5rem] border border-slate-200 p-4"
                 >
-                  <div>
-                    <p className="text-sm text-slate-500">Position {lesson.position}</p>
-                    <h4 className="font-semibold text-slate-900">{lesson.title}</h4>
-                    <p className="mt-1 text-sm text-slate-600">{lesson.slug}</p>
+                  <div className="flex items-start gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+                      <BookOpen className="h-4 w-4" />
+                    </div>
 
-                    <p className="mt-2 text-xs text-slate-500">
-                      Module: {module?.title || 'No module assigned'}
-                    </p>
+                    <div>
+                      <p className="text-sm text-slate-500">Position {lesson.position}</p>
+                      <h4 className="font-semibold text-slate-900">{lesson.title}</h4>
+                      <p className="mt-1 text-sm text-slate-600">{lesson.slug}</p>
+
+                      <p className="mt-2 text-xs text-slate-500">
+                        Module: {module?.title || 'No module assigned'}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-3">
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${
                         lesson.is_published
-                          ? 'bg-green-100 text-green-700'
-                          : 'bg-amber-100 text-amber-700'
+                          ? 'bg-emerald-100 text-emerald-700'
+                          : 'bg-amber-100 text-amber-900'
                       }`}
                     >
                       {lesson.is_published ? 'Published' : 'Draft'}
@@ -723,7 +826,7 @@ export default async function TeacherEditCoursePage({
 
                     <Link
                       href={`/teacher/lessons/${lesson.id}/edit`}
-                      className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                      className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                     >
                       Edit lesson
                     </Link>
@@ -733,7 +836,30 @@ export default async function TeacherEditCoursePage({
             })}
           </div>
         )}
-      </div>
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <Link
+            href={`/courses/${course.slug}`}
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
+          >
+            <Eye className="h-4 w-4" />
+            Open course overview
+          </Link>
+
+          <Link
+            href="/teacher/lessons"
+            className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
+          >
+            <FolderOpen className="h-4 w-4" />
+            View all lessons
+          </Link>
+
+          <div className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-600">
+            <CalendarDays className="h-4 w-4" />
+            Seasonal dates and pacing can both be managed here.
+          </div>
+        </div>
+      </section>
     </div>
   )
 }

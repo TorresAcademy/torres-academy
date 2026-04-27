@@ -1,6 +1,24 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import {
+  Award,
+  BarChart3,
+  Bell,
+  BookOpen,
+  ChevronRight,
+  Clock3,
+  FolderOpen,
+  GraduationCap,
+  LayoutDashboard,
+  Lock,
+  Shield,
+  Sparkles,
+  Trophy,
+  UserCircle2,
+  Users,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import LogoutButton from '@/components/logout-button'
@@ -146,9 +164,9 @@ function getCourseSeasonState(course: Course): CourseSeasonState {
 }
 
 function getAvailabilityBadgeClass(state: EnrollmentWindowState) {
-  if (state === 'coming_soon') return 'bg-amber-100 text-amber-800'
+  if (state === 'coming_soon') return 'bg-amber-100 text-amber-900'
   if (state === 'closed') return 'bg-red-100 text-red-700'
-  return 'bg-green-100 text-green-700'
+  return 'bg-emerald-100 text-emerald-700'
 }
 
 function getAvailabilityLabel(state: EnrollmentWindowState) {
@@ -158,9 +176,9 @@ function getAvailabilityLabel(state: EnrollmentWindowState) {
 }
 
 function getCourseSeasonBadgeClass(state: CourseSeasonState) {
-  if (state === 'upcoming') return 'bg-amber-100 text-amber-800'
+  if (state === 'upcoming') return 'bg-amber-100 text-amber-900'
   if (state === 'ended') return 'bg-slate-200 text-slate-700'
-  return 'bg-blue-100 text-blue-700'
+  return 'bg-yellow-100 text-yellow-900'
 }
 
 function getCourseSeasonLabel(state: CourseSeasonState) {
@@ -170,14 +188,14 @@ function getCourseSeasonLabel(state: CourseSeasonState) {
 }
 
 function getNotificationBadgeClass(type: string) {
-  if (type.includes('certificate')) return 'bg-green-100 text-green-700'
+  if (type.includes('certificate')) return 'bg-emerald-100 text-emerald-700'
 
   if (
     type.includes('submission') ||
     type.includes('review') ||
     type.includes('feedback')
   ) {
-    return 'bg-blue-100 text-blue-700'
+    return 'bg-amber-100 text-amber-900'
   }
 
   if (
@@ -185,15 +203,15 @@ function getNotificationBadgeClass(type: string) {
     type.includes('overdue') ||
     type.includes('closing')
   ) {
-    return 'bg-amber-100 text-amber-800'
+    return 'bg-red-100 text-red-700'
   }
 
   if (type.includes('enrollment')) {
-    return 'bg-indigo-100 text-indigo-700'
+    return 'bg-yellow-100 text-yellow-900'
   }
 
   if (type.includes('module') || type.includes('course')) {
-    return 'bg-purple-100 text-purple-700'
+    return 'bg-slate-100 text-slate-700'
   }
 
   return 'bg-slate-100 text-slate-700'
@@ -217,6 +235,132 @@ function notificationFingerprint(row: {
 
 function notificationIdentifier(row: NotificationSeedRow) {
   return row.notification_key ?? notificationFingerprint(row)
+}
+
+function HeaderAction({
+  href,
+  label,
+  icon,
+  tone = 'default',
+}: {
+  href: string
+  label: string
+  icon: ReactNode
+  tone?: 'default' | 'gold' | 'dark'
+}) {
+  const tones = {
+    default:
+      'border border-white/15 bg-white/5 text-white hover:bg-white/10 hover:text-amber-300',
+    gold: 'bg-amber-400 text-black hover:bg-amber-300',
+    dark: 'border border-white/15 bg-black/40 text-white hover:bg-black/60',
+  } as const
+
+  return (
+    <Link
+      href={href}
+      className={`inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold transition ${tones[tone]}`}
+    >
+      {icon}
+      <span>{label}</span>
+    </Link>
+  )
+}
+
+function HeroStatCard({
+  label,
+  value,
+  icon,
+}: {
+  label: string
+  value: number
+  icon: ReactNode
+}) {
+  return (
+    <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className="text-sm text-amber-100/80">{label}</p>
+          <p className="mt-2 text-3xl font-bold text-white">{value}</p>
+        </div>
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-400/15 text-amber-300">
+          {icon}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SectionHeading({
+  eyebrow,
+  title,
+  description,
+  icon,
+}: {
+  eyebrow: string
+  title: string
+  description?: string
+  icon?: ReactNode
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-700">
+          {eyebrow}
+        </p>
+        <h2 className="mt-2 text-3xl font-bold text-slate-900">{title}</h2>
+        {description && (
+          <p className="mt-2 text-sm leading-7 text-slate-600">{description}</p>
+        )}
+      </div>
+
+      {icon && (
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+          {icon}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function FeatureTile({
+  title,
+  description,
+  icon,
+  href,
+}: {
+  title: string
+  description: string
+  icon: ReactNode
+  href?: string
+}) {
+  const content = (
+    <div className="flex items-start gap-4">
+      <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+        {icon}
+      </div>
+      <div>
+        <p className="font-semibold text-slate-900">{title}</p>
+        <p className="mt-1 text-sm leading-6 text-slate-600">{description}</p>
+      </div>
+    </div>
+  )
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="block rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:border-amber-300 hover:shadow-md"
+      >
+        {content}
+      </Link>
+    )
+  }
+
+  return (
+    <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md">
+      {content}
+    </div>
+  )
 }
 
 export default async function DashboardPage({
@@ -250,6 +394,7 @@ export default async function DashboardPage({
   const role = profile?.role || 'student'
   const isAdmin = role === 'admin'
   const isTeacher = role === 'teacher' || role === 'admin'
+  const isParent = role === 'parent'
 
   const { data: enrollmentsData } = await supabase
     .from('enrollments')
@@ -309,7 +454,9 @@ export default async function DashboardPage({
 
     const { data: modulesData } = await supabase
       .from('course_modules')
-      .select('id, course_id, title, position, is_published, release_at, due_at')
+      .select(
+        'id, course_id, title, position, is_published, release_at, due_at'
+      )
       .in('course_id', allVisibleCourseIds)
       .order('course_id', { ascending: true })
       .order('position', { ascending: true })
@@ -345,7 +492,10 @@ export default async function DashboardPage({
     certificates = (certificatesData ?? []) as Certificate[]
   }
 
-  if (role === 'student' && (enrolledCourses.length > 0 || availableCourses.length > 0)) {
+  if (
+    role === 'student' &&
+    (enrolledCourses.length > 0 || availableCourses.length > 0)
+  ) {
     const serviceSupabase = createServiceRoleClient()
 
     const seedTypes = [
@@ -618,20 +768,18 @@ export default async function DashboardPage({
     }
   }
 
-  const [
-    notificationsCountResult,
-    unreadNotificationsCountResult,
-  ] = await Promise.all([
-    supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id),
-    supabase
-      .from('notifications')
-      .select('id', { count: 'exact', head: true })
-      .eq('user_id', user.id)
-      .eq('is_read', false),
-  ])
+  const [notificationsCountResult, unreadNotificationsCountResult] =
+    await Promise.all([
+      supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id),
+      supabase
+        .from('notifications')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('is_read', false),
+    ])
 
   let notificationsQuery = supabase
     .from('notifications')
@@ -651,8 +799,7 @@ export default async function DashboardPage({
   const notifications = (notificationsData ?? []) as NotificationRow[]
   const totalNotificationsCount = notificationsCountResult.count ?? 0
   const unreadNotificationsCount = unreadNotificationsCountResult.count ?? 0
-  const hasReadNotifications =
-    totalNotificationsCount > unreadNotificationsCount
+  const hasReadNotifications = totalNotificationsCount > unreadNotificationsCount
 
   const completedLessonIds = new Set(
     progressRows.filter((row) => row.completed).map((row) => row.lesson_id)
@@ -911,8 +1058,8 @@ export default async function DashboardPage({
       ? Math.round((totalCompletedLessons / totalEnrolledLessons) * 100)
       : 0
 
-  const completedCoursesCount = enrolledCourses.filter(
-    (course) => getCourseProgress(course.id).isComplete
+  const completedCoursesCount = enrolledCourses.filter((course) =>
+    getCourseProgress(course.id).isComplete
   ).length
 
   const issuedCertificatesCount = issuedCertificateCourseIds.size
@@ -921,12 +1068,12 @@ export default async function DashboardPage({
     (course) => getEnrollmentWindowState(course) === 'open'
   ).length
 
-  const coursesWithUpcomingModulesCount = enrolledCourses.filter(
-    (course) => Boolean(getCoursePacing(course.id).nextUpcomingModule)
+  const coursesWithUpcomingModulesCount = enrolledCourses.filter((course) =>
+    Boolean(getCoursePacing(course.id).nextUpcomingModule)
   ).length
 
-  const coursesWithDueSoonModulesCount = enrolledCourses.filter(
-    (course) => Boolean(getCoursePacing(course.id).dueSoonModule)
+  const coursesWithDueSoonModulesCount = enrolledCourses.filter((course) =>
+    Boolean(getCoursePacing(course.id).dueSoonModule)
   ).length
 
   const coursesWithOverdueModulesCount = enrolledCourses.filter(
@@ -934,210 +1081,224 @@ export default async function DashboardPage({
   ).length
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="border-b border-slate-200 bg-white">
+    <main className="min-h-screen bg-[#0a0a0a] text-white">
+      <header className="border-b border-white/10 bg-[#050505]">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-6 py-4">
           <div className="flex items-center gap-4">
-            <UserAvatar
-              src={profile?.avatar_url}
-              name={profile?.full_name}
-              email={profile?.email || user.email}
-              size="md"
-            />
+            <div className="rounded-full ring-2 ring-amber-400/30">
+              <UserAvatar
+                src={profile?.avatar_url}
+                name={profile?.full_name}
+                email={profile?.email || user.email}
+                size="md"
+              />
+            </div>
 
             <div>
-              <p className="text-sm font-medium text-slate-500">
+              <p className="text-sm font-medium text-amber-200/80">
                 {isAdmin
                   ? 'Admin Dashboard'
                   : role === 'teacher'
                     ? 'Teacher Dashboard'
-                    : 'Student Dashboard'}
+                    : isParent
+                      ? 'Parent Dashboard'
+                      : 'Student Dashboard'}
               </p>
 
-              <h1 className="text-2xl font-bold">
-                Welcome back, <span className="text-blue-600">{displayName}</span>
+              <h1 className="text-2xl font-bold text-white">
+                Welcome back, <span className="text-amber-400">{displayName}</span>
               </h1>
 
-              <p className="mt-1 text-xs uppercase tracking-[0.16em] text-slate-500">
+              <p className="mt-1 text-xs uppercase tracking-[0.16em] text-amber-300">
                 {role}
               </p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Link
+            <HeaderAction
               href="#notifications"
-              className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-            >
-              Notifications
-              {unreadNotificationsCount > 0 && (
-                <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
-                  {unreadNotificationsCount}
-                </span>
-              )}
-            </Link>
+              label={`Notifications${unreadNotificationsCount > 0 ? ` (${unreadNotificationsCount})` : ''}`}
+              icon={<Bell className="h-4 w-4" />}
+              tone="dark"
+            />
 
             {isAdmin && (
-              <Link
-                href="/admin"
-                className="rounded-xl bg-slate-900 px-5 py-3 font-semibold text-white transition hover:bg-slate-800"
-              >
-                Admin Panel
-              </Link>
+              <>
+                <HeaderAction
+                  href="/admin"
+                  label="Admin Panel"
+                  icon={<Shield className="h-4 w-4" />}
+                  tone="gold"
+                />
+
+                <HeaderAction
+                  href="/admin/guardians"
+                  label="Guardian Management"
+                  icon={<Users className="h-4 w-4" />}
+                  tone="gold"
+                />
+              </>
             )}
 
             {isTeacher && (
-              <Link
-                href="/teacher"
-                className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
-              >
-                Teacher Hub
-              </Link>
+              <>
+                <HeaderAction
+                  href="/teacher"
+                  label="Teacher Hub"
+                  icon={<GraduationCap className="h-4 w-4" />}
+                  tone="gold"
+                />
+
+                <HeaderAction
+                  href="/teacher/analytics"
+                  label="Teacher Analytics"
+                  icon={<BarChart3 className="h-4 w-4" />}
+                  tone="gold"
+                />
+              </>
             )}
 
-            <Link
+            {isParent && (
+              <HeaderAction
+                href="/parent"
+                label="Parent Report"
+                icon={<Users className="h-4 w-4" />}
+                tone="gold"
+              />
+            )}
+
+            <HeaderAction
               href="/dashboard/progress"
-              className="rounded-xl border border-purple-300 bg-purple-50 px-5 py-3 font-semibold text-purple-700 transition hover:bg-purple-100"
-            >
-              My Progress
-            </Link>
+              label="My Progress"
+              icon={<Trophy className="h-4 w-4" />}
+            />
 
-            <Link
+            <HeaderAction
+              href="/portfolio"
+              label="My Portfolio"
+              icon={<FolderOpen className="h-4 w-4" />}
+            />
+
+            <HeaderAction
               href="/certificates"
-              className="rounded-xl border border-blue-300 bg-blue-50 px-5 py-3 font-semibold text-blue-700 transition hover:bg-blue-100"
-            >
-              Certificates
-            </Link>
+              label="Certificates"
+              icon={<Award className="h-4 w-4" />}
+            />
 
-            <Link
+            <HeaderAction
               href="/profile"
-              className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-            >
-              My Profile
-            </Link>
+              label="My Profile"
+              icon={<UserCircle2 className="h-4 w-4" />}
+            />
 
-            <LogoutButton />
+            <div className="[&>button]:inline-flex [&>button]:min-h-[44px] [&>button]:items-center [&>button]:justify-center [&>button]:rounded-xl [&>button]:bg-red-600 [&>button]:px-4 [&>button]:py-2 [&>button]:text-sm [&>button]:font-semibold [&>button]:text-white [&>button]:transition [&>button]:hover:bg-red-700">
+              <LogoutButton />
+            </div>
           </div>
         </div>
       </header>
 
-      <section className="bg-gradient-to-br from-slate-950 via-blue-950 to-blue-800 text-white">
+      <section className="bg-gradient-to-br from-black via-[#17120a] to-[#5b4300] text-white">
         <div className="mx-auto grid max-w-7xl gap-8 px-6 py-12 lg:grid-cols-[1fr_430px] lg:items-center">
           <div>
-            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-blue-200">
+            <p className="text-sm font-semibold uppercase tracking-[0.22em] text-amber-300">
               Torres Academy
             </p>
 
             <h2 className="mt-4 max-w-3xl text-4xl font-bold tracking-tight md:text-5xl">
-              Your learning space is ready.
+              A premium learning space built for progress.
             </h2>
 
-            <p className="mt-5 max-w-2xl text-lg leading-8 text-blue-50">
-              Enroll in free courses, continue your lessons, complete quizzes,
-              save notes, request feedback, claim certificates, and track your
-              progress in one place.
+            <p className="mt-5 max-w-2xl text-lg leading-8 text-amber-50/90">
+              Continue lessons, track your progress, claim certificates, save
+              notes, receive updates, and manage your learning journey from one
+              elegant space.
             </p>
 
             <div className="mt-8 flex flex-wrap gap-4">
-              <Link
+              <HeaderAction
                 href="#available-courses"
-                className="rounded-xl bg-white px-5 py-3 font-semibold text-slate-950 transition hover:bg-blue-50"
-              >
-                Explore courses
-              </Link>
+                label="Explore courses"
+                icon={<BookOpen className="h-4 w-4" />}
+                tone="gold"
+              />
 
-              <Link
+              <HeaderAction
                 href="/dashboard/progress"
-                className="rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
-              >
-                View progress report
-              </Link>
+                label="View progress report"
+                icon={<LayoutDashboard className="h-4 w-4" />}
+              />
 
-              <Link
+              <HeaderAction
                 href="/certificates"
-                className="rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
-              >
-                My certificates
-              </Link>
+                label="My certificates"
+                icon={<Award className="h-4 w-4" />}
+              />
 
-              <Link
+              <HeaderAction
                 href="/profile"
-                className="rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
-              >
-                Edit profile
-              </Link>
-
-              {isAdmin && (
-                <Link
-                  href="/admin"
-                  className="rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
-                >
-                  Open Admin Panel
-                </Link>
-              )}
-
-              {isTeacher && (
-                <Link
-                  href="/teacher"
-                  className="rounded-xl border border-white/30 px-5 py-3 font-semibold text-white transition hover:bg-white/10"
-                >
-                  Open Teacher Hub
-                </Link>
-              )}
+                label="Edit profile"
+                icon={<UserCircle2 className="h-4 w-4" />}
+              />
             </div>
           </div>
 
-          <div className="rounded-3xl border border-white/15 bg-white/10 p-6 shadow-sm backdrop-blur">
-            <p className="font-bold text-blue-100">Your progress</p>
+          <div className="rounded-[2rem] border border-white/10 bg-black/30 p-6 shadow-2xl backdrop-blur">
+            <p className="font-bold text-amber-300">Your premium progress view</p>
 
             <div className="mt-6">
-              <div className="flex items-center justify-between text-sm text-blue-50">
+              <div className="flex items-center justify-between text-sm text-amber-50">
                 <span>Completed lessons</span>
                 <span>
                   {totalCompletedLessons}/{totalEnrolledLessons}
                 </span>
               </div>
 
-              <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/20">
+              <div className="mt-3 h-3 overflow-hidden rounded-full bg-white/10">
                 <div
-                  className="h-full rounded-full bg-blue-300"
+                  className="h-full rounded-full bg-amber-400"
                   style={{ width: `${overallProgress}%` }}
                 />
               </div>
             </div>
 
             <div className="mt-6 grid gap-4 sm:grid-cols-2">
-              <div className="rounded-2xl bg-white/10 p-5">
-                <p className="text-3xl font-bold">{enrolledCourses.length}</p>
-                <p className="mt-2 text-sm text-blue-50">My courses</p>
-              </div>
+              <HeroStatCard
+                label="My courses"
+                value={enrolledCourses.length}
+                icon={<BookOpen className="h-5 w-5" />}
+              />
 
-              <div className="rounded-2xl bg-white/10 p-5">
-                <p className="text-3xl font-bold">{completedCoursesCount}</p>
-                <p className="mt-2 text-sm text-blue-50">Completed courses</p>
-              </div>
+              <HeroStatCard
+                label="Completed courses"
+                value={completedCoursesCount}
+                icon={<Trophy className="h-5 w-5" />}
+              />
 
-              <div className="rounded-2xl bg-white/10 p-5">
-                <p className="text-3xl font-bold">{issuedCertificatesCount}</p>
-                <p className="mt-2 text-sm text-blue-50">Certificates</p>
-              </div>
+              <HeroStatCard
+                label="Certificates"
+                value={issuedCertificatesCount}
+                icon={<Award className="h-5 w-5" />}
+              />
 
-              <div className="rounded-2xl bg-white/10 p-5">
-                <p className="text-3xl font-bold">{openAvailableCoursesCount}</p>
-                <p className="mt-2 text-sm text-blue-50">Open now</p>
-              </div>
+              <HeroStatCard
+                label="Open now"
+                value={openAvailableCoursesCount}
+                icon={<Sparkles className="h-5 w-5" />}
+              />
             </div>
 
             <div className="mt-6 flex flex-wrap gap-3">
-              <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-blue-50">
+              <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-amber-100">
                 Upcoming modules: {coursesWithUpcomingModulesCount}
               </span>
 
-              <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-blue-50">
+              <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-amber-100">
                 Due soon: {coursesWithDueSoonModulesCount}
               </span>
 
-              <span className="rounded-full bg-white/10 px-4 py-2 text-sm font-semibold text-blue-50">
+              <span className="rounded-full border border-white/10 bg-white/5 px-4 py-2 text-sm font-semibold text-amber-100">
                 Overdue: {coursesWithOverdueModulesCount}
               </span>
             </div>
@@ -1145,32 +1306,112 @@ export default async function DashboardPage({
         </div>
       </section>
 
-      <div className="mx-auto max-w-7xl space-y-12 px-6 py-12">
-        <section id="notifications">
-          <div className="flex flex-wrap items-start justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-                Notifications
-              </p>
+      <div className="rounded-t-[2.5rem] bg-[#f7f3e8]">
+        <div className="mx-auto max-w-7xl space-y-12 px-6 py-12">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <FeatureTile
+              title="Progress tracking"
+              description="Follow your completed lessons, open modules, and current study pace."
+              icon={<Trophy className="h-5 w-5" />}
+              href="/dashboard/progress"
+            />
+            <FeatureTile
+              title="Portfolio"
+              description="Review your evidence, reflections, highlights, skills, and teacher feedback."
+              icon={<FolderOpen className="h-5 w-5" />}
+              href="/portfolio"
+            />
+            <FeatureTile
+              title="Certificates"
+              description="Claim and view certificates when you complete course requirements."
+              icon={<Award className="h-5 w-5" />}
+              href="/certificates"
+            />
+            <FeatureTile
+              title="Profile and learning tools"
+              description="Manage your account, review reports, and access your academy tools."
+              icon={<UserCircle2 className="h-5 w-5" />}
+              href="/profile"
+            />
+          </section>
 
-              <h2 className="mt-2 text-3xl font-bold text-slate-900">
-                Alerts and updates
-              </h2>
+          {(isAdmin || isTeacher || isParent) && (
+            <section>
+              <SectionHeading
+                eyebrow="Quick access"
+                title="Academy tools"
+                description="Fast links to the role-specific pages you use most."
+                icon={<LayoutDashboard className="h-5 w-5" />}
+              />
 
-              <p className="mt-2 text-sm text-slate-600">
-                {notificationsFilter === 'unread'
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                {isAdmin && (
+                  <>
+                    <FeatureTile
+                      title="Admin panel"
+                      description="Manage the academy setup, courses, teachers, and system tools."
+                      icon={<Shield className="h-5 w-5" />}
+                      href="/admin"
+                    />
+
+                    <FeatureTile
+                      title="Guardian management"
+                      description="Link parent accounts to students and revoke guardian access."
+                      icon={<Users className="h-5 w-5" />}
+                      href="/admin/guardians"
+                    />
+                  </>
+                )}
+
+                {isTeacher && (
+                  <>
+                    <FeatureTile
+                      title="Teacher hub"
+                      description="Manage courses, lessons, media, submissions, and feedback."
+                      icon={<GraduationCap className="h-5 w-5" />}
+                      href="/teacher"
+                    />
+
+                    <FeatureTile
+                      title="Teacher analytics"
+                      description="Track progress, submissions, rubric trends, and support priorities."
+                      icon={<BarChart3 className="h-5 w-5" />}
+                      href="/teacher/analytics"
+                    />
+                  </>
+                )}
+
+                {isParent && (
+                  <FeatureTile
+                    title="Parent report"
+                    description="View linked student progress, evidence, feedback, and certificates."
+                    icon={<Users className="h-5 w-5" />}
+                    href="/parent"
+                  />
+                )}
+              </div>
+            </section>
+          )}
+
+          <section id="notifications">
+            <SectionHeading
+              eyebrow="Notifications"
+              title="Alerts and updates"
+              description={
+                notificationsFilter === 'unread'
                   ? `Showing unread only · ${unreadNotificationsCount} unread`
-                  : `Showing all notifications · ${totalNotificationsCount} total`}
-              </p>
-            </div>
+                  : `Showing all notifications · ${totalNotificationsCount} total`
+              }
+              icon={<Bell className="h-5 w-5" />}
+            />
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="mt-6 flex flex-wrap items-center gap-3">
               <Link
                 href="/dashboard#notifications"
                 className={`rounded-xl px-4 py-2 font-semibold transition ${
                   notificationsFilter === 'all'
-                    ? 'bg-slate-900 text-white'
-                    : 'border border-slate-300 bg-white text-slate-900 hover:border-blue-300 hover:text-blue-600'
+                    ? 'bg-slate-900 text-amber-300'
+                    : 'border border-slate-300 bg-white text-slate-900 hover:border-amber-400 hover:text-amber-700'
                 }`}
               >
                 All ({totalNotificationsCount})
@@ -1180,8 +1421,8 @@ export default async function DashboardPage({
                 href="/dashboard?notifications=unread#notifications"
                 className={`rounded-xl px-4 py-2 font-semibold transition ${
                   notificationsFilter === 'unread'
-                    ? 'bg-slate-900 text-white'
-                    : 'border border-slate-300 bg-white text-slate-900 hover:border-blue-300 hover:text-blue-600'
+                    ? 'bg-slate-900 text-amber-300'
+                    : 'border border-slate-300 bg-white text-slate-900 hover:border-amber-400 hover:text-amber-700'
                 }`}
               >
                 Unread only ({unreadNotificationsCount})
@@ -1191,7 +1432,7 @@ export default async function DashboardPage({
                 <form action={markAllNotificationsRead}>
                   <button
                     type="submit"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                   >
                     Mark all as read
                   </button>
@@ -1202,95 +1443,110 @@ export default async function DashboardPage({
                 <form action={clearReadNotifications}>
                   <button
                     type="submit"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                   >
                     Clear read
                   </button>
                 </form>
               )}
             </div>
-          </div>
 
-          {notifications.length === 0 ? (
-            <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <h3 className="text-xl font-bold text-slate-900">
-                {notificationsFilter === 'unread'
-                  ? "You're all caught up"
-                  : 'No notifications yet'}
-              </h3>
+            {notifications.length === 0 ? (
+              <div className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                <h3 className="text-xl font-bold text-slate-900">
+                  {notificationsFilter === 'unread'
+                    ? "You're all caught up"
+                    : 'No notifications yet'}
+                </h3>
 
-              <p className="mt-2 text-slate-600">
-                {notificationsFilter === 'unread'
-                  ? 'There are no unread notifications right now.'
-                  : 'When the system sends updates about modules, enrollments, submissions, reviews, or certificates, they will appear here.'}
-              </p>
+                <p className="mt-2 text-slate-600">
+                  {notificationsFilter === 'unread'
+                    ? 'There are no unread notifications right now.'
+                    : 'When the system sends updates about modules, enrollments, submissions, reviews, or certificates, they will appear here.'}
+                </p>
 
-              {notificationsFilter === 'unread' && totalNotificationsCount > 0 && (
-                <div className="mt-4">
-                  <Link
-                    href="/dashboard#notifications"
-                    className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-                  >
-                    Show all notifications
-                  </Link>
-                </div>
-              )}
-            </div>
-          ) : (
-            <div className="mt-6 grid gap-4 lg:grid-cols-2">
-              {notifications.map((notification) => (
-                <article
-                  key={notification.id}
-                  className={`rounded-3xl border p-6 shadow-sm ${
-                    notification.is_read
-                      ? 'border-slate-200 bg-white'
-                      : 'border-blue-200 bg-blue-50'
-                  }`}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap gap-2">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${getNotificationBadgeClass(
-                          notification.type
-                        )}`}
+                {notificationsFilter === 'unread' &&
+                  totalNotificationsCount > 0 && (
+                    <div className="mt-4">
+                      <Link
+                        href="/dashboard#notifications"
+                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                       >
-                        {notification.type.replaceAll('_', ' ')}
-                      </span>
-
-                      {!notification.is_read && (
-                        <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-                          Unread
+                        Show all notifications
+                      </Link>
+                    </div>
+                  )}
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-4 lg:grid-cols-2">
+                {notifications.map((notification) => (
+                  <article
+                    key={notification.id}
+                    className={`rounded-[2rem] border p-6 shadow-sm ${
+                      notification.is_read
+                        ? 'border-slate-200 bg-white'
+                        : 'border-amber-300 bg-amber-50'
+                    }`}
+                  >
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex flex-wrap gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${getNotificationBadgeClass(
+                            notification.type
+                          )}`}
+                        >
+                          {notification.type.replaceAll('_', ' ')}
                         </span>
-                      )}
+
+                        {!notification.is_read && (
+                          <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+                            Unread
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-xs text-slate-500">
+                        {formatDate(notification.created_at)}
+                      </p>
                     </div>
 
-                    <p className="text-xs text-slate-500">
-                      {formatDate(notification.created_at)}
-                    </p>
-                  </div>
+                    <h3 className="mt-4 text-xl font-bold text-slate-900">
+                      {notification.title}
+                    </h3>
 
-                  <h3 className="mt-4 text-xl font-bold text-slate-900">
-                    {notification.title}
-                  </h3>
-
-                  {notification.message && (
-                    <p className="mt-3 leading-7 text-slate-600">
-                      {notification.message}
-                    </p>
-                  )}
-
-                  <div className="mt-6 flex flex-wrap gap-3">
-                    {notification.link_url && (
-                      <Link
-                        href={notification.link_url}
-                        className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
-                      >
-                        Open
-                      </Link>
+                    {notification.message && (
+                      <p className="mt-3 leading-7 text-slate-600">
+                        {notification.message}
+                      </p>
                     )}
 
-                    {!notification.is_read && (
-                      <form action={markNotificationRead}>
+                    <div className="mt-6 flex flex-wrap gap-3">
+                      {notification.link_url && (
+                        <Link
+                          href={notification.link_url}
+                          className="rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black"
+                        >
+                          Open
+                        </Link>
+                      )}
+
+                      {!notification.is_read && (
+                        <form action={markNotificationRead}>
+                          <input
+                            type="hidden"
+                            name="notification_id"
+                            value={notification.id}
+                          />
+                          <button
+                            type="submit"
+                            className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
+                          >
+                            Mark as read
+                          </button>
+                        </form>
+                      )}
+
+                      <form action={dismissNotification}>
                         <input
                           type="hidden"
                           name="notification_id"
@@ -1298,414 +1554,413 @@ export default async function DashboardPage({
                         />
                         <button
                           type="submit"
-                          className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                          className="rounded-xl border border-red-200 bg-white px-5 py-3 font-semibold text-red-600 transition hover:bg-red-50"
                         >
-                          Mark as read
+                          Dismiss
                         </button>
                       </form>
-                    )}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
 
-                    <form action={dismissNotification}>
-                      <input
-                        type="hidden"
-                        name="notification_id"
-                        value={notification.id}
-                      />
-                      <button
-                        type="submit"
-                        className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-red-300 hover:text-red-600"
-                      >
-                        Dismiss
-                      </button>
-                    </form>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </section>
+          <section>
+            <SectionHeading
+              eyebrow="My Courses"
+              title="Continue learning"
+              description="Courses you are already enrolled in"
+              icon={<GraduationCap className="h-5 w-5" />}
+            />
 
-        <section>
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-                My Courses
-              </p>
+            {enrolledCourses.length === 0 ? (
+              <div className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                <h3 className="text-xl font-bold text-slate-900">
+                  No enrolled courses yet
+                </h3>
 
-              <h2 className="mt-2 text-3xl font-bold text-slate-900">
-                Continue learning
-              </h2>
-            </div>
+                <p className="mt-2 text-slate-600">
+                  Choose a free course below to start learning.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                {enrolledCourses.map((course) => {
+                  const progress = getCourseProgress(course.id)
+                  const certificate = getCourseCertificate(course.id)
+                  const seasonState = getCourseSeasonState(course)
+                  const seasonLabel = getCourseSeasonLabel(seasonState)
+                  const seasonClass = getCourseSeasonBadgeClass(seasonState)
+                  const pacing = getCoursePacing(course.id)
 
-            <p className="text-sm text-slate-600">
-              Courses you are already enrolled in
-            </p>
-          </div>
+                  return (
+                    <article
+                      key={course.id}
+                      className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+                              <BookOpen className="h-5 w-5" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-900">
+                              {course.title}
+                            </h3>
+                          </div>
 
-          {enrolledCourses.length === 0 ? (
-            <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <h3 className="text-xl font-bold text-slate-900">
-                No enrolled courses yet
-              </h3>
+                          <p className="mt-4 leading-7 text-slate-600">
+                            {course.description || 'No description yet.'}
+                          </p>
 
-              <p className="mt-2 text-slate-600">
-                Choose a free course below to start learning.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
-              {enrolledCourses.map((course) => {
-                const progress = getCourseProgress(course.id)
-                const certificate = getCourseCertificate(course.id)
-                const seasonState = getCourseSeasonState(course)
-                const seasonLabel = getCourseSeasonLabel(seasonState)
-                const seasonClass = getCourseSeasonBadgeClass(seasonState)
-                const pacing = getCoursePacing(course.id)
+                          <div className="mt-4 flex flex-wrap gap-2">
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-semibold ${seasonClass}`}
+                            >
+                              {seasonLabel}
+                            </span>
 
-                return (
-                  <article
-                    key={course.id}
-                    className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-2xl font-bold text-slate-900">
-                          {course.title}
-                        </h3>
+                            {course.recommended_duration_label && (
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                                {course.recommended_duration_label}
+                              </span>
+                            )}
 
-                        <p className="mt-3 leading-7 text-slate-600">
-                          {course.description || 'No description yet.'}
-                        </p>
+                            {course.course_starts_at && (
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                                Starts: {formatDate(course.course_starts_at)}
+                              </span>
+                            )}
 
-                        <div className="mt-4 flex flex-wrap gap-2">
-                          <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold ${seasonClass}`}
-                          >
-                            {seasonLabel}
+                            {course.course_ends_at && (
+                              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                                Ends: {formatDate(course.course_ends_at)}
+                              </span>
+                            )}
+
+                            {progress.lockedLessonCount > 0 && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                                <Lock className="h-3.5 w-3.5" />
+                                Locked lessons: {progress.lockedLessonCount}
+                              </span>
+                            )}
+
+                            {pacing.overdueCount > 0 && (
+                              <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
+                                Overdue modules: {pacing.overdueCount}
+                              </span>
+                            )}
+
+                            {pacing.dueSoonModule && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
+                                <Clock3 className="h-3.5 w-3.5" />
+                                Due soon: {pacing.dueSoonModule.title}
+                              </span>
+                            )}
+
+                            {!pacing.dueSoonModule &&
+                              pacing.nextUpcomingModule && (
+                                <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-900">
+                                  Opens soon: {pacing.nextUpcomingModule.title}
+                                </span>
+                              )}
+                          </div>
+                        </div>
+
+                        <span
+                          className={`rounded-full px-4 py-2 text-sm font-semibold ${
+                            progress.isComplete
+                              ? 'bg-emerald-100 text-emerald-700'
+                              : 'bg-amber-100 text-amber-900'
+                          }`}
+                        >
+                          {progress.isComplete
+                            ? 'Completed'
+                            : `${progress.percentage}%`}
+                        </span>
+                      </div>
+
+                      <div className="mt-6">
+                        <div className="flex items-center justify-between text-sm text-slate-600">
+                          <span>
+                            {progress.completedLessons} of {progress.totalLessons}{' '}
+                            lessons completed
                           </span>
+                          <span>{progress.percentage}%</span>
+                        </div>
 
-                          {course.recommended_duration_label && (
-                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                              {course.recommended_duration_label}
-                            </span>
-                          )}
-
-                          {course.course_starts_at && (
-                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                              Starts: {formatDate(course.course_starts_at)}
-                            </span>
-                          )}
-
-                          {course.course_ends_at && (
-                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                              Ends: {formatDate(course.course_ends_at)}
-                            </span>
-                          )}
-
-                          {progress.lockedLessonCount > 0 && (
-                            <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                              Locked lessons: {progress.lockedLessonCount}
-                            </span>
-                          )}
-
-                          {pacing.overdueCount > 0 && (
-                            <span className="rounded-full bg-red-100 px-3 py-1 text-xs font-semibold text-red-700">
-                              Overdue modules: {pacing.overdueCount}
-                            </span>
-                          )}
-
-                          {pacing.dueSoonModule && (
-                            <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
-                              Due soon: {pacing.dueSoonModule.title}
-                            </span>
-                          )}
-
-                          {!pacing.dueSoonModule && pacing.nextUpcomingModule && (
-                            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                              Opens soon: {pacing.nextUpcomingModule.title}
-                            </span>
-                          )}
+                        <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-200">
+                          <div
+                            className="h-full rounded-full bg-amber-400"
+                            style={{ width: `${progress.percentage}%` }}
+                          />
                         </div>
                       </div>
 
-                      <span
-                        className={`rounded-full px-4 py-2 text-sm font-semibold ${
-                          progress.isComplete
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-blue-100 text-blue-700'
-                        }`}
-                      >
-                        {progress.isComplete
-                          ? 'Completed'
-                          : `${progress.percentage}%`}
-                      </span>
-                    </div>
+                      {pacing.overdueCount > 0 && (
+                        <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5">
+                          <h4 className="font-bold text-red-700">
+                            Module deadlines passed
+                          </h4>
 
-                    <div className="mt-6">
-                      <div className="flex items-center justify-between text-sm text-slate-600">
-                        <span>
-                          {progress.completedLessons} of {progress.totalLessons}{' '}
-                          lessons completed
-                        </span>
-                        <span>{progress.percentage}%</span>
-                      </div>
+                          <p className="mt-2 text-sm leading-6 text-slate-700">
+                            You have {pacing.overdueCount} module
+                            {pacing.overdueCount === 1 ? '' : 's'} with a passed
+                            due date. Open the course to continue working
+                            through them.
+                          </p>
+                        </div>
+                      )}
 
-                      <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-200">
-                        <div
-                          className="h-full rounded-full bg-blue-600"
-                          style={{ width: `${progress.percentage}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    {pacing.overdueCount > 0 && (
-                      <div className="mt-6 rounded-2xl border border-red-200 bg-red-50 p-5">
-                        <h4 className="font-bold text-red-700">
-                          Module deadlines passed
-                        </h4>
-
-                        <p className="mt-2 text-sm leading-6 text-slate-700">
-                          You have {pacing.overdueCount} module
-                          {pacing.overdueCount === 1 ? '' : 's'} with a passed due
-                          date. Open the course to continue working through them.
-                        </p>
-                      </div>
-                    )}
-
-                    {!pacing.overdueCount && pacing.dueSoonModule && (
-                      <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
-                        <h4 className="font-bold text-amber-800">
-                          Module due soon
-                        </h4>
-
-                        <p className="mt-2 text-sm leading-6 text-slate-700">
-                          <span className="font-semibold">
-                            {pacing.dueSoonModule.title}
-                          </span>{' '}
-                          is due on {formatDate(pacing.dueSoonModule.due_at)}.
-                        </p>
-                      </div>
-                    )}
-
-                    {!pacing.overdueCount &&
-                      !pacing.dueSoonModule &&
-                      pacing.nextUpcomingModule && (
-                        <div className="mt-6 rounded-2xl border border-blue-200 bg-blue-50 p-5">
-                          <h4 className="font-bold text-blue-700">
-                            Next module opens soon
+                      {!pacing.overdueCount && pacing.dueSoonModule && (
+                        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-5">
+                          <h4 className="font-bold text-amber-900">
+                            Module due soon
                           </h4>
 
                           <p className="mt-2 text-sm leading-6 text-slate-700">
                             <span className="font-semibold">
-                              {pacing.nextUpcomingModule.title}
+                              {pacing.dueSoonModule.title}
                             </span>{' '}
-                            opens on {formatDate(pacing.nextUpcomingModule.release_at)}.
+                            is due on {formatDate(pacing.dueSoonModule.due_at)}.
                           </p>
                         </div>
                       )}
 
-                    {progress.isComplete && (
-                      <div className="mt-6 rounded-2xl border border-green-200 bg-green-50 p-5">
-                        <h4 className="font-bold text-green-800">
-                          Course completed
-                        </h4>
+                      {!pacing.overdueCount &&
+                        !pacing.dueSoonModule &&
+                        pacing.nextUpcomingModule && (
+                          <div className="mt-6 rounded-2xl border border-yellow-200 bg-yellow-50 p-5">
+                            <h4 className="font-bold text-yellow-900">
+                              Next module opens soon
+                            </h4>
 
-                        <p className="mt-2 text-sm leading-6 text-slate-700">
-                          You finished all published lessons. Go to the certificate
-                          center to claim or download your certificate.
-                        </p>
-
-                        {certificate && (
-                          <p className="mt-2 text-xs font-semibold text-green-700">
-                            Certificate issued · Code: {certificate.verification_code}
-                          </p>
+                            <p className="mt-2 text-sm leading-6 text-slate-700">
+                              <span className="font-semibold">
+                                {pacing.nextUpcomingModule.title}
+                              </span>{' '}
+                              opens on{' '}
+                              {formatDate(pacing.nextUpcomingModule.release_at)}.
+                            </p>
+                          </div>
                         )}
-                      </div>
-                    )}
-
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      {progress.nextLessonSlug && !progress.isComplete ? (
-                        <Link
-                          href={`/lessons/${progress.nextLessonSlug}`}
-                          className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
-                        >
-                          Continue course
-                        </Link>
-                      ) : (
-                        <Link
-                          href={`/courses/${course.slug}`}
-                          className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
-                        >
-                          View course
-                        </Link>
-                      )}
-
-                      <Link
-                        href={`/courses/${course.slug}`}
-                        className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-                      >
-                        Course overview
-                      </Link>
-
-                      <Link
-                        href="/dashboard/progress"
-                        className="rounded-xl border border-purple-300 bg-purple-50 px-5 py-3 font-semibold text-purple-700 transition hover:bg-purple-100"
-                      >
-                        Progress report
-                      </Link>
 
                       {progress.isComplete && (
+                        <div className="mt-6 rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                          <h4 className="font-bold text-emerald-800">
+                            Course completed
+                          </h4>
+
+                          <p className="mt-2 text-sm leading-6 text-slate-700">
+                            You finished all published lessons. Go to the
+                            certificate center to claim or download your
+                            certificate.
+                          </p>
+
+                          {certificate && (
+                            <p className="mt-2 text-xs font-semibold text-emerald-700">
+                              Certificate issued · Code:{' '}
+                              {certificate.verification_code}
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      <div className="mt-6 flex flex-wrap gap-3">
+                        {progress.nextLessonSlug && !progress.isComplete ? (
+                          <Link
+                            href={`/lessons/${progress.nextLessonSlug}`}
+                            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black"
+                          >
+                            Continue course
+                            <ChevronRight className="h-4 w-4" />
+                          </Link>
+                        ) : (
+                          <Link
+                            href={`/courses/${course.slug}`}
+                            className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black"
+                          >
+                            View course
+                            <ChevronRight className="h-4 w-4" />
+                          </Link>
+                        )}
+
                         <Link
-                          href={
-                            certificate
-                              ? `/certificates/${certificate.id}`
-                              : '/certificates'
-                          }
-                          className="rounded-xl bg-green-600 px-5 py-3 font-semibold text-white transition hover:bg-green-700"
+                          href={`/courses/${course.slug}`}
+                          className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                         >
-                          {certificate
-                            ? 'Download certificate'
-                            : 'Claim certificate'}
+                          Course overview
                         </Link>
-                      )}
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          )}
-        </section>
 
-        <section id="available-courses">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-                Available Courses
-              </p>
-
-              <h2 className="mt-2 text-3xl font-bold text-slate-900">
-                Free courses you can join
-              </h2>
-            </div>
-          </div>
-
-          {availableCourses.length === 0 ? (
-            <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
-              <p className="text-slate-700">
-                No new free courses are available right now.
-              </p>
-            </div>
-          ) : (
-            <div className="mt-6 grid gap-6 lg:grid-cols-2">
-              {availableCourses.map((course) => {
-                const courseLessons = getCourseLessons(course.id)
-                const enrollmentState = getEnrollmentWindowState(course)
-                const availabilityLabel = getAvailabilityLabel(enrollmentState)
-                const availabilityClass = getAvailabilityBadgeClass(enrollmentState)
-                const seasonState = getCourseSeasonState(course)
-                const seasonLabel = getCourseSeasonLabel(seasonState)
-                const seasonClass = getCourseSeasonBadgeClass(seasonState)
-                const pacing = getCoursePacing(course.id)
-
-                return (
-                  <article
-                    key={course.id}
-                    className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
-                  >
-                    <div className="flex flex-wrap items-start justify-between gap-4">
-                      <div>
-                        <h3 className="text-2xl font-bold text-slate-900">
-                          {course.title}
-                        </h3>
-
-                        <p className="mt-3 leading-7 text-slate-600">
-                          {course.description || 'No description yet.'}
-                        </p>
-                      </div>
-
-                      <div className="flex flex-wrap gap-2">
-                        <span className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700">
-                          Free
-                        </span>
-
-                        <span
-                          className={`rounded-full px-4 py-2 text-sm font-semibold ${availabilityClass}`}
+                        <Link
+                          href="/dashboard/progress"
+                          className="rounded-xl border border-amber-300 bg-amber-50 px-5 py-3 font-semibold text-amber-900 transition hover:bg-amber-100"
                         >
-                          {availabilityLabel}
-                        </span>
+                          Progress report
+                        </Link>
+
+                        {progress.isComplete && (
+                          <Link
+                            href={
+                              certificate
+                                ? `/certificates/${certificate.id}`
+                                : '/certificates'
+                            }
+                            className="rounded-xl bg-emerald-600 px-5 py-3 font-semibold text-white transition hover:bg-emerald-700"
+                          >
+                            {certificate
+                              ? 'Download certificate'
+                              : 'Claim certificate'}
+                          </Link>
+                        )}
                       </div>
-                    </div>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </section>
 
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      <span
-                        className={`rounded-full px-3 py-1 text-xs font-semibold ${seasonClass}`}
-                      >
-                        {seasonLabel}
-                      </span>
+          <section id="available-courses">
+            <SectionHeading
+              eyebrow="Available Courses"
+              title="Free courses you can join"
+              description="Discover new courses currently available to you"
+              icon={<Sparkles className="h-5 w-5" />}
+            />
 
-                      {course.recommended_duration_label && (
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                          {course.recommended_duration_label}
+            {availableCourses.length === 0 ? (
+              <div className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+                <p className="text-slate-700">
+                  No new free courses are available right now.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-6 lg:grid-cols-2">
+                {availableCourses.map((course) => {
+                  const courseLessons = getCourseLessons(course.id)
+                  const enrollmentState = getEnrollmentWindowState(course)
+                  const availabilityLabel =
+                    getAvailabilityLabel(enrollmentState)
+                  const availabilityClass =
+                    getAvailabilityBadgeClass(enrollmentState)
+                  const seasonState = getCourseSeasonState(course)
+                  const seasonLabel = getCourseSeasonLabel(seasonState)
+                  const seasonClass = getCourseSeasonBadgeClass(seasonState)
+                  const pacing = getCoursePacing(course.id)
+
+                  return (
+                    <article
+                      key={course.id}
+                      className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
+                    >
+                      <div className="flex flex-wrap items-start justify-between gap-4">
+                        <div>
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+                              <BookOpen className="h-5 w-5" />
+                            </div>
+                            <h3 className="text-2xl font-bold text-slate-900">
+                              {course.title}
+                            </h3>
+                          </div>
+
+                          <p className="mt-4 leading-7 text-slate-600">
+                            {course.description || 'No description yet.'}
+                          </p>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-semibold text-emerald-700">
+                            Free
+                          </span>
+
+                          <span
+                            className={`rounded-full px-4 py-2 text-sm font-semibold ${availabilityClass}`}
+                          >
+                            {availabilityLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <span
+                          className={`rounded-full px-3 py-1 text-xs font-semibold ${seasonClass}`}
+                        >
+                          {seasonLabel}
                         </span>
+
+                        {course.recommended_duration_label && (
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                            {course.recommended_duration_label}
+                          </span>
+                        )}
+
+                        {course.enrollment_opens_at && (
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                            Opens: {formatDate(course.enrollment_opens_at)}
+                          </span>
+                        )}
+
+                        {course.enrollment_closes_at && (
+                          <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                            Closes: {formatDate(course.enrollment_closes_at)}
+                          </span>
+                        )}
+
+                        {pacing.nextUpcomingModule && (
+                          <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-900">
+                            First upcoming module: {pacing.nextUpcomingModule.title}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="mt-5 text-sm text-slate-600">
+                        {courseLessons.length} published lesson
+                        {courseLessons.length === 1 ? '' : 's'}
+                      </p>
+
+                      {enrollmentState === 'coming_soon' && (
+                        <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
+                          Enrollment opens on{' '}
+                          {formatDate(course.enrollment_opens_at)}.
+                        </div>
                       )}
 
-                      {course.enrollment_opens_at && (
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                          Opens: {formatDate(course.enrollment_opens_at)}
-                        </span>
+                      {enrollmentState === 'closed' && (
+                        <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-slate-700">
+                          Enrollment closed on{' '}
+                          {formatDate(course.enrollment_closes_at)}.
+                        </div>
                       )}
 
-                      {course.enrollment_closes_at && (
-                        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
-                          Closes: {formatDate(course.enrollment_closes_at)}
-                        </span>
-                      )}
+                      {enrollmentState !== 'closed' &&
+                        pacing.nextUpcomingModule && (
+                          <div className="mt-5 rounded-2xl border border-yellow-200 bg-yellow-50 p-4 text-sm text-slate-700">
+                            Next module opens on{' '}
+                            {formatDate(pacing.nextUpcomingModule.release_at)}.
+                          </div>
+                        )}
 
-                      {pacing.nextUpcomingModule && (
-                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                          First upcoming module: {pacing.nextUpcomingModule.title}
-                        </span>
-                      )}
-                    </div>
-
-                    <p className="mt-5 text-sm text-slate-600">
-                      {courseLessons.length} published lesson
-                      {courseLessons.length === 1 ? '' : 's'}
-                    </p>
-
-                    {enrollmentState === 'coming_soon' && (
-                      <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-slate-700">
-                        Enrollment opens on {formatDate(course.enrollment_opens_at)}.
+                      <div className="mt-6 flex flex-wrap gap-3">
+                        <Link
+                          href={`/courses/${course.slug}`}
+                          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black"
+                        >
+                          {enrollmentState === 'open'
+                            ? 'View course'
+                            : 'View details'}
+                          <ChevronRight className="h-4 w-4" />
+                        </Link>
                       </div>
-                    )}
-
-                    {enrollmentState === 'closed' && (
-                      <div className="mt-5 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-slate-700">
-                        Enrollment closed on {formatDate(course.enrollment_closes_at)}.
-                      </div>
-                    )}
-
-                    {enrollmentState !== 'closed' && pacing.nextUpcomingModule && (
-                      <div className="mt-5 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-slate-700">
-                        Next module opens on{' '}
-                        {formatDate(pacing.nextUpcomingModule.release_at)}.
-                      </div>
-                    )}
-
-                    <div className="mt-6 flex flex-wrap gap-3">
-                      <Link
-                        href={`/courses/${course.slug}`}
-                        className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
-                      >
-                        {enrollmentState === 'open' ? 'View course' : 'View details'}
-                      </Link>
-                    </div>
-                  </article>
-                )
-              })}
-            </div>
-          )}
-        </section>
+                    </article>
+                  )
+                })}
+              </div>
+            )}
+          </section>
+        </div>
       </div>
     </main>
   )

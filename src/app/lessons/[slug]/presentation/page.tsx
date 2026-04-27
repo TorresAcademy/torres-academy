@@ -2,6 +2,9 @@ import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
+import LessonPresentationSlides, {
+  type PresentationSlide,
+} from '@/components/lesson/lesson-presentation-slides'
 
 type PresentationLessonPageProps = {
   params: Promise<{
@@ -46,6 +49,17 @@ type LessonRecord = {
   encouragement_text: string | null
 }
 
+type LessonMediaItemRow = {
+  id: string
+  title: string | null
+  description: string | null
+  media_path: string
+  media_type: string
+  mime_type: string | null
+  original_name: string | null
+  position: number
+}
+
 function isModuleAccessible(
   moduleRow: CourseModule | null | undefined,
   canBypassEnrollment: boolean
@@ -81,6 +95,7 @@ export default async function PresentationLessonPage({
 }: PresentationLessonPageProps) {
   const { slug } = await params
   const supabase = await createClient()
+  const serviceSupabase = createServiceRoleClient()
 
   const {
     data: { user },
@@ -205,17 +220,56 @@ export default async function PresentationLessonPage({
       ? courseLessons[currentIndex + 1]
       : null
 
-  let mediaSignedUrl: string | null = null
+  const { data: mediaItemRows } = await serviceSupabase
+    .from('lesson_media_items')
+    .select(
+      'id, title, description, media_path, media_type, mime_type, original_name, position'
+    )
+    .eq('lesson_id', lesson.id)
+    .eq('is_published', true)
+    .order('position', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  const newSlides = await Promise.all(
+    ((mediaItemRows ?? []) as LessonMediaItemRow[]).map(async (item) => {
+      const { data } = await serviceSupabase.storage
+        .from('lesson-media')
+        .createSignedUrl(item.media_path, 60 * 30)
+
+      return {
+        id: String(item.id),
+        title: item.title,
+        description: item.description,
+        mediaType: item.media_type,
+        mimeType: item.mime_type,
+        originalName: item.original_name,
+        position: item.position,
+        signedUrl: data?.signedUrl ?? null,
+      } satisfies PresentationSlide
+    })
+  )
+
+  let legacySlide: PresentationSlide | null = null
 
   if (lesson.media_path) {
-    const serviceSupabase = createServiceRoleClient()
-
     const { data } = await serviceSupabase.storage
       .from('lesson-media')
       .createSignedUrl(lesson.media_path, 60 * 30)
 
-    mediaSignedUrl = data?.signedUrl ?? null
+    legacySlide = {
+      id: `legacy-${lesson.id}`,
+      title: lesson.media_original_name || lesson.title,
+      description: null,
+      mediaType: lesson.media_type,
+      mimeType: lesson.media_mime_type,
+      originalName: lesson.media_original_name,
+      position: 1,
+      signedUrl: data?.signedUrl ?? null,
+    }
   }
+
+  const presentationSlides =
+    newSlides.length > 0 ? newSlides : legacySlide ? [legacySlide] : []
 
   const moduleReleaseLabel = formatDate(currentModule?.release_at ?? null)
   const moduleDueLabel = formatDate(currentModule?.due_at ?? null)
@@ -267,6 +321,11 @@ export default async function PresentationLessonPage({
             Lesson {lesson.position}
           </span>
 
+          <span className="rounded-full bg-blue-500/20 px-3 py-1 text-sm font-semibold text-blue-100">
+            {presentationSlides.length} slide
+            {presentationSlides.length === 1 ? '' : 's'}
+          </span>
+
           {moduleReleaseLabel && (
             <span className="rounded-full bg-blue-500/20 px-3 py-1 text-sm font-semibold text-blue-100">
               Opens: {moduleReleaseLabel}
@@ -283,34 +342,7 @@ export default async function PresentationLessonPage({
         <div className="grid gap-6 xl:grid-cols-[minmax(0,1.65fr)_360px]">
           <section className="space-y-6">
             <div className="rounded-3xl border border-white/10 bg-slate-900/80 p-6 shadow-2xl">
-              <div className="rounded-3xl border border-white/10 bg-slate-950 p-6">
-                {mediaSignedUrl ? (
-                  lesson.media_type === 'video' ? (
-                    <video
-                      src={mediaSignedUrl}
-                      controls
-                      className="w-full rounded-2xl"
-                    />
-                  ) : (
-                    <img
-                      src={mediaSignedUrl}
-                      alt={lesson.media_original_name || lesson.title}
-                      className="w-full rounded-2xl object-contain"
-                    />
-                  )
-                ) : (
-                  <div className="flex min-h-[280px] items-center justify-center rounded-2xl bg-slate-900 text-center text-slate-300">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-200">
-                        Presentation Media Area
-                      </p>
-                      <p className="mt-3 text-lg font-semibold text-white">
-                        No media uploaded for this lesson yet.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
+              <LessonPresentationSlides slides={presentationSlides} />
 
               <div className="mt-6 rounded-3xl border border-white/10 bg-white p-8 text-slate-900">
                 <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">

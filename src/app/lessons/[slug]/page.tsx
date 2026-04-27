@@ -1,33 +1,72 @@
-import Link from 'next/link'
+// src/app/lessons/[slug]/page.tsx
 import { notFound, redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import StudentLessonExperience from '@/components/lesson/student-lesson-experience'
 import { createClient } from '@/lib/supabase/server'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
-import StudentLessonExperience from '@/components/lesson/student-lesson-experience'
 
 type LessonPageProps = {
-  params: Promise<{
-    slug: string
-  }>
+  params: Promise<{ slug: string }>
 }
 
-type CourseModule = {
-  id: number
-  course_id: number
-  title: string
-  position: number
-  is_published: boolean
-  release_at: string | null
-  due_at: string | null
-}
+type CourseStatus = 'draft' | 'published' | 'archived'
 
-type CourseLesson = {
+type Course = {
   id: number
   title: string
   slug: string
+  is_published: boolean | null
+  status: CourseStatus | null
+  teacher_id: string | null
+}
+
+type Lesson = {
+  id: number
+  course_id: number
+  module_id: number | null
+  title: string
+  slug: string
+  content: string | null
+  video_url: string | null
   position: number
   is_published: boolean | null
-  module_id: number | null
+  teacher_explanation: string | null
+  encouragement_title: string | null
+  encouragement_text: string | null
+  media_path: string | null
+  media_type: string | null
+  media_original_name: string | null
+  media_mime_type: string | null
+}
+
+type LessonProgress = {
+  lesson_id: number
+  completed: boolean
+  note: string | null
+}
+
+type LessonNote = {
+  content: string | null
+}
+
+type LessonReaction = {
+  reaction: string | null
+}
+
+type LessonReflection = {
+  learned: string | null
+  difficult: string | null
+  next_step: string | null
+  confidence_level: number | null
+}
+
+type FeedbackRequest = {
+  id: number
+  status: string
+  student_message: string
+  teacher_feedback: string | null
+  created_at: string | null
+  reviewed_at: string | null
 }
 
 type Quiz = {
@@ -57,162 +96,145 @@ type QuizAttempt = {
   created_at: string
 }
 
-function isModuleAccessible(
-  moduleRow: CourseModule | null | undefined,
-  canBypassEnrollment: boolean
-) {
-  if (canBypassEnrollment) return true
-  if (!moduleRow) return true
-  if (!moduleRow.is_published) return false
+type MediaItemRow = {
+  id: string
+  title: string | null
+  description: string | null
+  media_path: string
+  media_type: string
+  mime_type: string | null
+  original_name: string | null
+  position: number
+}
 
-  if (moduleRow.release_at) {
-    const releaseAt = new Date(moduleRow.release_at)
-    if (!Number.isNaN(releaseAt.getTime()) && new Date() < releaseAt) {
-      return false
-    }
+function normalizeStatus(
+  status: CourseStatus | null,
+  isPublished: boolean | null
+): CourseStatus {
+  if (status === 'draft' || status === 'published' || status === 'archived') {
+    return status
   }
 
-  return true
+  return isPublished ? 'published' : 'draft'
 }
 
 export default async function LessonPage({ params }: LessonPageProps) {
   const { slug } = await params
+
+  if (!slug) {
+    notFound()
+  }
+
   const supabase = await createClient()
+  const serviceSupabase = createServiceRoleClient()
 
   const {
     data: { user },
   } = await supabase.auth.getUser()
 
   if (!user) {
-    redirect(`/login?next=/lessons/${slug}`)
+    redirect('/login')
   }
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, role')
+    .select('role')
     .eq('id', user.id)
     .maybeSingle()
 
-  const canBypassEnrollment =
-    profile?.role === 'admin' || profile?.role === 'teacher'
+  const isTeacherOrAdmin =
+    profile?.role === 'teacher' || profile?.role === 'admin'
 
-  let lessonQuery = supabase
+  const { data: lessonData } = await serviceSupabase
     .from('lessons')
     .select(
-      'id, title, slug, content, position, course_id, module_id, is_published, media_path, media_type, media_original_name, media_mime_type, teacher_explanation, encouragement_title, encouragement_text'
+      'id, course_id, module_id, title, slug, content, video_url, position, is_published, teacher_explanation, encouragement_title, encouragement_text, media_path, media_type, media_original_name, media_mime_type'
     )
     .eq('slug', slug)
+    .maybeSingle()
 
-  if (!canBypassEnrollment) {
-    lessonQuery = lessonQuery.eq('is_published', true)
-  }
-
-  const { data: lesson } = await lessonQuery.maybeSingle()
-
-  if (!lesson) {
+  if (!lessonData) {
     notFound()
   }
 
-  const { data: course } = await supabase
+  const lesson = lessonData as Lesson
+
+  const { data: courseData } = await serviceSupabase
     .from('courses')
-    .select('id, title, slug, is_published, is_free, status')
+    .select('id, title, slug, is_published, status, teacher_id')
     .eq('id', lesson.course_id)
     .maybeSingle()
 
-  if (!course) {
+  if (!courseData) {
     notFound()
   }
 
-  if (
-    !canBypassEnrollment &&
-    (!course.is_published || course.status !== 'published')
-  ) {
+  const course = courseData as Course
+  const courseStatus = normalizeStatus(course.status, course.is_published)
+  const isCoursePublished = courseStatus === 'published'
+  const isLessonPublished = Boolean(lesson.is_published)
+  const ownsCourse = course.teacher_id === user.id
+
+  const { data: enrollment } = await serviceSupabase
+    .from('enrollments')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('course_id', course.id)
+    .maybeSingle()
+
+  const canAccess =
+    Boolean(enrollment) ||
+    (isTeacherOrAdmin && (profile?.role === 'admin' || ownsCourse))
+
+  if (!canAccess) {
+    redirect(`/courses/${course.slug}`)
+  }
+
+  if (!isTeacherOrAdmin && (!isCoursePublished || !isLessonPublished)) {
     notFound()
   }
 
-  if (!canBypassEnrollment) {
-    const { data: enrollment } = await supabase
-      .from('enrollments')
-      .select('user_id')
-      .eq('user_id', user.id)
-      .eq('course_id', course.id)
-      .maybeSingle()
-
-    if (!enrollment) {
-      if (course.is_published && course.is_free && course.status === 'published') {
-        const { error: enrollError } = await supabase.from('enrollments').insert({
-          user_id: user.id,
-          course_id: course.id,
-        })
-
-        if (enrollError) {
-          console.error(enrollError)
-          redirect(`/courses/${course.slug}`)
-        }
-      } else {
-        redirect(`/courses/${course.slug}`)
-      }
-    }
-  }
-
-  const { data: courseModulesData } = await supabase
-    .from('course_modules')
-    .select('id, course_id, title, position, is_published, release_at, due_at')
+  const { data: lessonRows } = await serviceSupabase
+    .from('lessons')
+    .select('id, title, slug, position, is_published')
     .eq('course_id', course.id)
     .order('position', { ascending: true })
     .order('id', { ascending: true })
 
-  const courseModules = (courseModulesData ?? []) as CourseModule[]
-  const courseModuleMap = new Map(courseModules.map((module) => [module.id, module]))
-
-  const currentModule =
-    lesson.module_id !== null ? courseModuleMap.get(lesson.module_id) ?? null : null
-
-  if (!isModuleAccessible(currentModule, canBypassEnrollment)) {
-    redirect(`/courses/${course.slug}`)
-  }
-
-  let courseLessonsQuery = supabase
-    .from('lessons')
-    .select('id, title, slug, position, is_published, module_id')
-    .eq('course_id', course.id)
-    .order('position', { ascending: true })
-
-  if (!canBypassEnrollment) {
-    courseLessonsQuery = courseLessonsQuery.eq('is_published', true)
-  }
-
-  const { data: courseLessonsData } = await courseLessonsQuery
-
-  const courseLessonsRaw = (courseLessonsData ?? []) as CourseLesson[]
-
-  const courseLessons = courseLessonsRaw.filter((item) => {
-    const itemModule =
-      item.module_id !== null ? courseModuleMap.get(item.module_id) ?? null : null
-
-    return isModuleAccessible(itemModule, canBypassEnrollment)
-  })
+  const courseLessons = ((lessonRows ?? []) as Array<{
+    id: number
+    title: string
+    slug: string
+    position: number
+    is_published: boolean | null
+  }>).filter((item) => isTeacherOrAdmin || item.is_published)
 
   const lessonIds = courseLessons.map((item) => item.id)
 
-  let progressRows: { lesson_id: number; completed: boolean }[] = []
+  const { data: progressRows } =
+    lessonIds.length > 0
+      ? await serviceSupabase
+          .from('lesson_progress')
+          .select('lesson_id, completed, note')
+          .eq('user_id', user.id)
+          .in('lesson_id', lessonIds)
+      : { data: [] }
 
-  if (lessonIds.length > 0) {
-    const { data: progressData } = await supabase
-      .from('lesson_progress')
-      .select('lesson_id, completed')
-      .eq('user_id', user.id)
-      .in('lesson_id', lessonIds)
-
-    progressRows = progressData ?? []
-  }
-
-  const completedLessonIds = new Set(
-    progressRows.filter((row) => row.completed).map((row) => row.lesson_id)
+  const progress = (progressRows ?? []) as LessonProgress[]
+  const progressMap = new Map(
+    progress.map((item) => [item.lesson_id, Boolean(item.completed)])
   )
 
-  const currentIndex = courseLessons.findIndex((item) => item.id === lesson.id)
+  const navigationItems = courseLessons.map((item) => ({
+    id: item.id,
+    title: item.title,
+    slug: item.slug,
+    position: item.position,
+    completed: progressMap.get(item.id) ?? false,
+    current: item.id === lesson.id,
+  }))
 
+  const currentIndex = courseLessons.findIndex((item) => item.id === lesson.id)
   const previousLesson =
     currentIndex > 0
       ? {
@@ -229,247 +251,264 @@ export default async function LessonPage({ params }: LessonPageProps) {
         }
       : null
 
-  const navigationLessons = courseLessons.map((item) => ({
-    id: item.id,
-    title: item.title,
-    slug: item.slug,
-    position: item.position,
-    completed: completedLessonIds.has(item.id),
-    current: item.id === lesson.id,
-  }))
+  const currentProgress = progress.find((item) => item.lesson_id === lesson.id)
+  const isCompleted = Boolean(currentProgress?.completed)
 
-  const isCompleted = completedLessonIds.has(lesson.id)
-
-  const { data: noteData } = await supabase
+  const { data: noteData } = await serviceSupabase
     .from('lesson_notes')
     .select('content')
     .eq('user_id', user.id)
     .eq('lesson_id', lesson.id)
     .maybeSingle()
 
-  const { data: reactionData } = await supabase
+  const { data: reactionData } = await serviceSupabase
     .from('lesson_reactions')
     .select('reaction')
     .eq('user_id', user.id)
     .eq('lesson_id', lesson.id)
     .maybeSingle()
 
-  const { data: reflectionData } = await supabase
+  const { data: reflectionData } = await serviceSupabase
     .from('lesson_reflections')
     .select('learned, difficult, next_step, confidence_level')
     .eq('user_id', user.id)
     .eq('lesson_id', lesson.id)
     .maybeSingle()
 
-  const { data: feedbackRequestData } = await supabase
+  const { data: feedbackData } = await serviceSupabase
     .from('feedback_requests')
     .select(
       'id, status, student_message, teacher_feedback, created_at, reviewed_at'
     )
     .eq('user_id', user.id)
     .eq('lesson_id', lesson.id)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
-  const { data: quizzesData } = await supabase.rpc(
-    'get_lesson_quizzes_for_student',
-    {
-      input_lesson_id: lesson.id,
-    }
-  )
+  const { data: quizRows } = await serviceSupabase
+    .from('quizzes')
+    .select('id, title, quiz_type, pass_percentage, position, is_published')
+    .eq('lesson_id', lesson.id)
+    .eq('is_published', true)
+    .order('position', { ascending: true })
 
-  const quizzes = Array.isArray(quizzesData) ? (quizzesData as Quiz[]) : []
-  const quizIds = quizzes.map((quiz) => quiz.id)
+  const rawQuizzes = (quizRows ?? []) as Array<{
+    id: number
+    title: string
+    quiz_type: string
+    pass_percentage: number
+    position: number
+  }>
 
-  let quizAttempts: QuizAttempt[] = []
+  const quizIds = rawQuizzes.map((quiz) => quiz.id)
 
-  if (quizIds.length > 0) {
-    const { data: attemptsData } = await supabase
-      .from('quiz_attempts')
-      .select(
-        'quiz_id, score_percentage, correct_count, total_questions, passed, created_at'
-      )
-      .eq('user_id', user.id)
-      .in('quiz_id', quizIds)
-      .order('created_at', { ascending: false })
+  const { data: questionRows } =
+    quizIds.length > 0
+      ? await serviceSupabase
+          .from('quiz_questions')
+          .select('id, quiz_id, question, position')
+          .in('quiz_id', quizIds)
+          .order('position', { ascending: true })
+      : { data: [] }
 
-    quizAttempts = (attemptsData ?? []) as QuizAttempt[]
-  }
+  const questions = (questionRows ?? []) as Array<{
+    id: number
+    quiz_id: number
+    question: string
+    position: number
+  }>
 
-  const finalQuizzes = quizzes.filter((quiz) => quiz.quiz_type === 'final')
-  const passedQuizIds = new Set(
-    quizAttempts
-      .filter((attempt) => attempt.passed)
-      .map((attempt) => attempt.quiz_id)
-  )
+  const questionIds = questions.map((question) => question.id)
+
+  const { data: optionRows } =
+    questionIds.length > 0
+      ? await serviceSupabase
+          .from('quiz_options')
+          .select('id, question_id, option_text, position')
+          .in('question_id', questionIds)
+          .order('position', { ascending: true })
+      : { data: [] }
+
+  const options = (optionRows ?? []) as Array<{
+    id: number
+    question_id: number
+    option_text: string
+    position: number
+  }>
+
+  const quizzes: Quiz[] = rawQuizzes.map((quiz) => ({
+    id: quiz.id,
+    title: quiz.title,
+    quiz_type: quiz.quiz_type,
+    pass_percentage: quiz.pass_percentage,
+    position: quiz.position,
+    questions: questions
+      .filter((question) => question.quiz_id === quiz.id)
+      .map((question) => ({
+        id: question.id,
+        question: question.question,
+        position: question.position,
+        options: options
+          .filter((option) => option.question_id === question.id)
+          .map((option) => ({
+            id: option.id,
+            option_text: option.option_text,
+            position: option.position,
+          })),
+      })),
+  }))
+
+  const { data: attemptRows } =
+    quizIds.length > 0
+      ? await serviceSupabase
+          .from('quiz_attempts')
+          .select(
+            'quiz_id, score_percentage, correct_count, total_questions, passed, created_at'
+          )
+          .eq('user_id', user.id)
+          .in('quiz_id', quizIds)
+          .order('created_at', { ascending: false })
+      : { data: [] }
+
+  const quizAttempts = (attemptRows ?? []) as QuizAttempt[]
+
+  const finalQuizIds = quizzes
+    .filter((quiz) => quiz.quiz_type === 'final')
+    .map((quiz) => quiz.id)
 
   const finalQuizPassed =
-    finalQuizzes.length === 0 ||
-    finalQuizzes.every((quiz) => passedQuizIds.has(quiz.id))
+    finalQuizIds.length === 0 ||
+    quizAttempts.some(
+      (attempt) => finalQuizIds.includes(attempt.quiz_id) && attempt.passed
+    )
 
-  let mediaSignedUrl: string | null = null
+  let signedUrl: string | null = null
 
   if (lesson.media_path) {
-    const serviceSupabase = createServiceRoleClient()
-
     const { data } = await serviceSupabase.storage
       .from('lesson-media')
-      .createSignedUrl(lesson.media_path, 60 * 30)
+      .createSignedUrl(lesson.media_path, 60 * 20)
 
-    mediaSignedUrl = data?.signedUrl ?? null
+    signedUrl = data?.signedUrl ?? null
   }
 
-  const lessonId = lesson.id
-  const courseSlug = course.slug
-  const nextLessonSlug = nextLesson?.slug ?? null
+  const media = {
+    url: signedUrl,
+    type: lesson.media_type,
+    mimeType: lesson.media_mime_type,
+    originalName: lesson.media_original_name,
+  }
 
-  async function completeAction() {
+  const { data: mediaItemRows } = await serviceSupabase
+    .from('lesson_media_items')
+    .select(
+      'id, title, description, media_path, media_type, mime_type, original_name, position'
+    )
+    .eq('lesson_id', lesson.id)
+    .eq('is_published', true)
+    .order('position', { ascending: true })
+    .order('created_at', { ascending: true })
+
+  const mediaItems = await Promise.all(
+    ((mediaItemRows ?? []) as MediaItemRow[]).map(async (item) => {
+      const { data } = await serviceSupabase.storage
+        .from('lesson-media')
+        .createSignedUrl(item.media_path, 60 * 20)
+
+      return {
+        id: String(item.id),
+        title: item.title,
+        description: item.description,
+        mediaType: item.media_type,
+        mimeType: item.mime_type,
+        originalName: item.original_name,
+        position: item.position,
+        signedUrl: data?.signedUrl ?? null,
+      }
+    })
+  )
+
+  async function completeLesson() {
     'use server'
 
     const supabase = await createClient()
+    const serviceSupabase = createServiceRoleClient()
 
     const {
       data: { user },
     } = await supabase.auth.getUser()
 
     if (!user) {
-      redirect(`/login?next=/lessons/${slug}`)
+      redirect('/login')
     }
 
-    const { data: currentLesson } = await supabase
+    const { data: currentLesson } = await serviceSupabase
       .from('lessons')
-      .select('id, module_id')
-      .eq('id', lessonId)
+      .select('id, slug')
+      .eq('id', lesson.id)
       .maybeSingle()
 
-      if (!currentLesson) {
-      redirect(`/courses/${courseSlug}`)
+    if (!currentLesson) {
+      redirect('/dashboard')
     }
 
-    if (currentLesson.module_id !== null) {
-      const { data: currentModuleRow } = await supabase
-        .from('course_modules')
-        .select('id, is_published, release_at')
-        .eq('id', currentLesson.module_id)
-        .maybeSingle()
-
-      if (
-        currentModuleRow &&
-        (!currentModuleRow.is_published ||
-          (currentModuleRow.release_at &&
-            new Date() < new Date(currentModuleRow.release_at)))
-      ) {
-        redirect(`/courses/${courseSlug}`)
-      }
-    }
-
-    const { data: finalQuizzesData } = await supabase
-      .from('quizzes')
-      .select('id')
-      .eq('lesson_id', lessonId)
-      .eq('quiz_type', 'final')
-      .eq('is_published', true)
-
-    const finalQuizIds = (finalQuizzesData ?? []).map((quiz) => quiz.id)
-
-    if (finalQuizIds.length > 0) {
-      const { data: passedAttempts } = await supabase
-        .from('quiz_attempts')
-        .select('quiz_id')
-        .eq('user_id', user.id)
-        .in('quiz_id', finalQuizIds)
-        .eq('passed', true)
-
-      const passedIds = new Set(
-        (passedAttempts ?? []).map((attempt) => attempt.quiz_id)
-      )
-
-      const passedEveryFinalQuiz = finalQuizIds.every((quizId) =>
-        passedIds.has(quizId)
-      )
-
-      if (!passedEveryFinalQuiz) {
-        redirect(`/lessons/${slug}`)
-      }
-    }
-
-    await supabase.from('lesson_progress').upsert(
+    await serviceSupabase.from('lesson_progress').upsert(
       {
         user_id: user.id,
-        lesson_id: lessonId,
+        lesson_id: lesson.id,
         completed: true,
+        completed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
       },
       {
         onConflict: 'user_id,lesson_id',
       }
     )
 
-    revalidatePath(`/lessons/${slug}`)
-    revalidatePath(`/courses/${courseSlug}`)
+    revalidatePath(`/lessons/${currentLesson.slug}`)
     revalidatePath('/dashboard')
-
-    if (nextLessonSlug) {
-      redirect(`/lessons/${nextLessonSlug}`)
-    }
-
-    redirect(`/courses/${courseSlug}`)
   }
 
   return (
-    <div>
-      <div className="mx-auto max-w-7xl px-6 pt-6">
-        <div className="flex flex-wrap items-center justify-end gap-3">
-          <Link
-            href={`/lessons/${lesson.slug}/presentation`}
-            className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-          >
-            Presentation View
-          </Link>
-        </div>
-      </div>
-
-      <StudentLessonExperience
-        userId={user.id}
-        course={{
-          id: course.id,
-          title: course.title,
-          slug: course.slug,
-        }}
-        lesson={{
-          id: lesson.id,
-          title: lesson.title,
-          slug: lesson.slug,
-          content: lesson.content,
-          position: lesson.position,
-          teacher_explanation: lesson.teacher_explanation,
-          encouragement_title: lesson.encouragement_title,
-          encouragement_text: lesson.encouragement_text,
-        }}
-        lessons={navigationLessons}
-        previousLesson={previousLesson}
-        nextLesson={nextLesson}
-        isCompleted={isCompleted}
-        initialNote={noteData?.content ?? ''}
-        initialReaction={reactionData?.reaction ?? ''}
-        initialReflection={{
-          learned: reflectionData?.learned ?? '',
-          difficult: reflectionData?.difficult ?? '',
-          nextStep: reflectionData?.next_step ?? '',
-          confidence: reflectionData?.confidence_level
-            ? String(reflectionData.confidence_level)
-            : '',
-        }}
-        initialFeedbackRequest={feedbackRequestData ?? null}
-        quizzes={quizzes}
-        quizAttempts={quizAttempts}
-        finalQuizPassed={finalQuizPassed}
-        media={{
-          url: mediaSignedUrl,
-          type: lesson.media_type,
-          mimeType: lesson.media_mime_type,
-          originalName: lesson.media_original_name,
-        }}
-        completeAction={completeAction}
-      />
-    </div>
+    <StudentLessonExperience
+      userId={user.id}
+      course={{
+        id: course.id,
+        title: course.title,
+        slug: course.slug,
+      }}
+      lesson={{
+        id: lesson.id,
+        title: lesson.title,
+        slug: lesson.slug,
+        content: lesson.content,
+        position: lesson.position,
+        teacher_explanation: lesson.teacher_explanation,
+        encouragement_title: lesson.encouragement_title,
+        encouragement_text: lesson.encouragement_text,
+      }}
+      lessons={navigationItems}
+      previousLesson={previousLesson}
+      nextLesson={nextLesson}
+      isCompleted={isCompleted}
+      initialNote={(noteData as LessonNote | null)?.content ?? ''}
+      initialReaction={(reactionData as LessonReaction | null)?.reaction ?? ''}
+      initialReflection={{
+        learned: (reflectionData as LessonReflection | null)?.learned ?? '',
+        difficult: (reflectionData as LessonReflection | null)?.difficult ?? '',
+        nextStep: (reflectionData as LessonReflection | null)?.next_step ?? '',
+        confidence:
+          (reflectionData as LessonReflection | null)?.confidence_level?.toString() ??
+          '',
+      }}
+      initialFeedbackRequest={(feedbackData as FeedbackRequest | null) ?? null}
+      quizzes={quizzes}
+      quizAttempts={quizAttempts}
+      finalQuizPassed={finalQuizPassed}
+      media={media}
+      mediaItems={mediaItems}
+      completeAction={completeLesson}
+    />
   )
 }

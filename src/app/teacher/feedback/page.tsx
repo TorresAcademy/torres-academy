@@ -1,6 +1,15 @@
 import Link from 'next/link'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import {
+  CheckCircle2,
+  Lock,
+  MessageSquareMore,
+  Send,
+  Sparkles,
+  UserRound,
+  XCircle,
+} from 'lucide-react'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 import UserAvatar from '@/components/user-avatar'
@@ -66,14 +75,49 @@ async function createStudentFeedbackNotification(params: {
   })
 }
 
+function StatCard({
+  label,
+  value,
+  tone = 'slate',
+}: {
+  label: string
+  value: number
+  tone?: 'slate' | 'amber' | 'emerald' | 'zinc'
+}) {
+  const tones = {
+    slate: 'border-slate-200 bg-white text-slate-900',
+    amber: 'border-amber-200 bg-amber-50 text-amber-900',
+    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    zinc: 'border-slate-300 bg-slate-100 text-slate-700',
+  } as const
+
+  const labelTones = {
+    slate: 'text-slate-500',
+    amber: 'text-amber-700',
+    emerald: 'text-emerald-700',
+    zinc: 'text-slate-500',
+  } as const
+
+  return (
+    <div className={`rounded-3xl border p-6 shadow-sm ${tones[tone]}`}>
+      <p className={`text-sm ${labelTones[tone]}`}>{label}</p>
+      <p className="mt-2 text-3xl font-bold">{value}</p>
+    </div>
+  )
+}
+
+function getStatusBadgeClass(status: string) {
+  if (status === 'reviewed') return 'bg-emerald-100 text-emerald-700'
+  if (status === 'closed') return 'bg-slate-200 text-slate-700'
+  return 'bg-amber-100 text-amber-900'
+}
+
 export default async function TeacherFeedbackPage() {
   const { supabase, user, profile } = await requireTeacherOrAdmin()
   const isAdmin = profile.role === 'admin'
 
   const { data: coursesData } = isAdmin
-    ? await supabase
-        .from('courses')
-        .select('id, title, teacher_id')
+    ? await supabase.from('courses').select('id, title, teacher_id')
     : await supabase
         .from('courses')
         .select('id, title, teacher_id')
@@ -279,44 +323,51 @@ export default async function TeacherFeedbackPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-          Feedback
-        </p>
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+              Feedback
+            </p>
 
-        <h2 className="mt-2 text-3xl font-bold text-slate-900">
-          Teacher feedback requests
-        </h2>
+            <h2 className="mt-2 text-3xl font-bold md:text-4xl">
+              Teacher feedback requests
+            </h2>
 
-        <p className="mt-2 text-slate-600">
-          Review student questions, reflections, and requests for human feedback.
-        </p>
-      </div>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+              Review student questions, reflections, and requests for human
+              feedback in one premium response space.
+            </p>
+          </div>
 
-      <div className="grid gap-6 md:grid-cols-4">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Total requests</p>
-          <p className="mt-2 text-3xl font-bold">{requests.length}</p>
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-400 text-black">
+                <Sparkles className="h-5 w-5" />
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Premium feedback review
+                </p>
+                <p className="text-sm text-slate-300">
+                  Reply, guide, and close requests with clarity.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Pending</p>
-          <p className="mt-2 text-3xl font-bold text-amber-600">{pendingCount}</p>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Reviewed</p>
-          <p className="mt-2 text-3xl font-bold text-green-600">{reviewedCount}</p>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Closed</p>
-          <p className="mt-2 text-3xl font-bold text-slate-600">{closedCount}</p>
-        </div>
-      </div>
+      <section className="grid gap-6 md:grid-cols-4">
+        <StatCard label="Total requests" value={requests.length} tone="slate" />
+        <StatCard label="Pending" value={pendingCount} tone="amber" />
+        <StatCard label="Reviewed" value={reviewedCount} tone="emerald" />
+        <StatCard label="Closed" value={closedCount} tone="zinc" />
+      </section>
 
       {requests.length === 0 ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <p className="text-slate-700">No feedback requests yet.</p>
         </div>
       ) : (
@@ -329,7 +380,7 @@ export default async function TeacherFeedbackPage() {
             return (
               <article
                 key={request.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
@@ -341,7 +392,7 @@ export default async function TeacherFeedbackPage() {
                     />
 
                     <div>
-                      <p className="text-sm font-semibold text-blue-700">
+                      <p className="text-sm font-semibold text-amber-800">
                         {courseTitle || 'Course'}
                       </p>
 
@@ -350,7 +401,8 @@ export default async function TeacherFeedbackPage() {
                       </h3>
 
                       <p className="mt-1 text-sm text-slate-600">
-                        Student: {student?.full_name || student?.email || 'Student'}
+                        Student:{' '}
+                        {student?.full_name || student?.email || 'Student'}
                       </p>
 
                       <p className="mt-1 text-xs text-slate-500">
@@ -359,37 +411,52 @@ export default async function TeacherFeedbackPage() {
                           ? new Date(request.created_at).toLocaleString()
                           : '—'}
                       </p>
+
+                      {request.reviewed_at && (
+                        <p className="mt-1 text-xs text-slate-500">
+                          Reviewed:{' '}
+                          {new Date(request.reviewed_at).toLocaleString()}
+                        </p>
+                      )}
                     </div>
                   </div>
 
                   <span
-                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                      request.status === 'reviewed'
-                        ? 'bg-green-100 text-green-700'
-                        : request.status === 'closed'
-                          ? 'bg-slate-100 text-slate-700'
-                          : 'bg-amber-100 text-amber-700'
-                    }`}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${getStatusBadgeClass(
+                      request.status
+                    )}`}
                   >
                     {request.status}
                   </span>
                 </div>
 
-                <div className="mt-6 rounded-2xl bg-slate-50 p-5">
-                  <p className="text-sm font-semibold text-slate-900">
-                    Student message
-                  </p>
-                  <p className="mt-2 whitespace-pre-wrap leading-7 text-slate-700">
+                <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex items-center gap-3">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+                      <MessageSquareMore className="h-5 w-5" />
+                    </div>
+                    <p className="text-sm font-semibold text-slate-900">
+                      Student message
+                    </p>
+                  </div>
+
+                  <p className="mt-4 whitespace-pre-wrap leading-7 text-slate-700">
                     {request.student_message}
                   </p>
                 </div>
 
                 {request.teacher_feedback && (
-                  <div className="mt-4 rounded-2xl border border-green-200 bg-green-50 p-5">
-                    <p className="text-sm font-semibold text-green-800">
-                      Your feedback
-                    </p>
-                    <p className="mt-2 whitespace-pre-wrap leading-7 text-slate-700">
+                  <div className="mt-4 rounded-3xl border border-emerald-200 bg-emerald-50 p-5">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-emerald-600 text-white">
+                        <CheckCircle2 className="h-5 w-5" />
+                      </div>
+                      <p className="text-sm font-semibold text-emerald-800">
+                        Your feedback
+                      </p>
+                    </div>
+
+                    <p className="mt-4 whitespace-pre-wrap leading-7 text-slate-700">
                       {request.teacher_feedback}
                     </p>
                   </div>
@@ -406,23 +473,25 @@ export default async function TeacherFeedbackPage() {
                     name="teacher_feedback"
                     defaultValue={request.teacher_feedback ?? ''}
                     rows={5}
-                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                    className="w-full rounded-2xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                     placeholder="Write helpful feedback, correction, advice, or next steps..."
                   />
 
                   <div className="mt-4 flex flex-wrap gap-3">
                     <button
                       type="submit"
-                      className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+                      className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black"
                     >
+                      <Send className="h-4 w-4" />
                       Send feedback
                     </button>
 
                     {lesson && (
                       <Link
                         href={`/lessons/${lesson.slug}`}
-                        className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                       >
+                        <UserRound className="h-4 w-4" />
                         Open lesson
                       </Link>
                     )}
@@ -434,11 +503,19 @@ export default async function TeacherFeedbackPage() {
                     <input type="hidden" name="request_id" value={request.id} />
                     <button
                       type="submit"
-                      className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
+                      className="inline-flex items-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2 text-sm font-semibold text-red-700 transition hover:bg-red-50"
                     >
+                      <XCircle className="h-4 w-4" />
                       Mark closed
                     </button>
                   </form>
+                )}
+
+                {request.status === 'closed' && (
+                  <div className="mt-3 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-600">
+                    <Lock className="h-4 w-4" />
+                    This request is closed
+                  </div>
                 )}
               </article>
             )

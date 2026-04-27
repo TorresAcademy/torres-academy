@@ -1,5 +1,18 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import {
+  AlertTriangle,
+  Award,
+  BookOpen,
+  CheckCircle2,
+  ClipboardList,
+  GraduationCap,
+  MessageSquareMore,
+  ShieldAlert,
+  Sparkles,
+  UserRound,
+} from 'lucide-react'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 import UserAvatar from '@/components/user-avatar'
 
@@ -99,19 +112,18 @@ type CertificateStatus = 'Not ready' | 'Ready' | 'Issued' | 'Revoked'
 
 function formatDate(value: string | null) {
   if (!value) return '—'
-
   return new Date(value).toLocaleString()
 }
 
 function getRiskBadgeClass(riskLevel: 'Low' | 'Medium' | 'High') {
   if (riskLevel === 'High') return 'bg-red-100 text-red-700'
-  if (riskLevel === 'Medium') return 'bg-amber-100 text-amber-700'
-  return 'bg-green-100 text-green-700'
+  if (riskLevel === 'Medium') return 'bg-amber-100 text-amber-900'
+  return 'bg-emerald-100 text-emerald-700'
 }
 
 function getCertificateBadgeClass(status: CertificateStatus) {
-  if (status === 'Issued') return 'bg-green-100 text-green-700'
-  if (status === 'Ready') return 'bg-blue-100 text-blue-700'
+  if (status === 'Issued') return 'bg-emerald-100 text-emerald-700'
+  if (status === 'Ready') return 'bg-amber-100 text-amber-900'
   if (status === 'Revoked') return 'bg-red-100 text-red-700'
   return 'bg-slate-100 text-slate-700'
 }
@@ -199,6 +211,105 @@ function calculateRisk(input: {
     riskScore,
     riskReasons: riskReasons.length > 0 ? riskReasons : ['On track'],
   }
+}
+
+function StatCard({
+  label,
+  value,
+  note,
+  icon,
+  tone = 'slate',
+}: {
+  label: string
+  value: string | number
+  note?: string
+  icon: ReactNode
+  tone?: 'slate' | 'gold' | 'red' | 'amber' | 'emerald'
+}) {
+  const tones = {
+    slate: {
+      card: 'border-slate-200 bg-white',
+      icon: 'bg-slate-900 text-amber-300',
+      label: 'text-slate-500',
+      value: 'text-slate-900',
+    },
+    gold: {
+      card: 'border-amber-200 bg-amber-50',
+      icon: 'bg-amber-400 text-black',
+      label: 'text-amber-900',
+      value: 'text-amber-900',
+    },
+    red: {
+      card: 'border-red-200 bg-red-50',
+      icon: 'bg-red-600 text-white',
+      label: 'text-red-700',
+      value: 'text-red-700',
+    },
+    amber: {
+      card: 'border-yellow-200 bg-yellow-50',
+      icon: 'bg-yellow-500 text-black',
+      label: 'text-yellow-900',
+      value: 'text-yellow-900',
+    },
+    emerald: {
+      card: 'border-emerald-200 bg-emerald-50',
+      icon: 'bg-emerald-600 text-white',
+      label: 'text-emerald-700',
+      value: 'text-emerald-700',
+    },
+  } as const
+
+  return (
+    <div className={`rounded-3xl border p-6 shadow-sm ${tones[tone].card}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className={`text-sm ${tones[tone].label}`}>{label}</p>
+          <p className={`mt-2 text-3xl font-bold ${tones[tone].value}`}>
+            {value}
+          </p>
+          {note && <p className="mt-1 text-sm text-slate-600">{note}</p>}
+        </div>
+
+        <div
+          className={`flex h-11 w-11 items-center justify-center rounded-2xl ${tones[tone].icon}`}
+        >
+          {icon}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SectionHeader({
+  eyebrow,
+  title,
+  description,
+  icon,
+}: {
+  eyebrow: string
+  title: string
+  description?: string
+  icon?: ReactNode
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-700">
+          {eyebrow}
+        </p>
+        <h3 className="mt-2 text-2xl font-bold text-slate-900">{title}</h3>
+        {description && (
+          <p className="mt-2 text-sm leading-7 text-slate-600">{description}</p>
+        )}
+      </div>
+
+      {icon && (
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+          {icon}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default async function TeacherStudentReportPage({
@@ -446,15 +557,12 @@ export default async function TeacherStudentReportPage({
     )
   }
 
-  function getCourseCertificateStatus(courseLessons: Lesson[]) {
+  function getCourseCertificateStatus(courseId: number, courseLessons: Lesson[]) {
     const courseLessonIds = courseLessons.map((lesson) => lesson.id)
 
     const courseCertificate =
-      certificates.find((certificate) =>
-        courseLessonIds.length > 0
-          ? certificate.course_id === courseLessons[0]?.course_id
-          : false
-      ) ?? null
+      certificates.find((certificate) => certificate.course_id === courseId) ??
+      null
 
     const courseCompletedLessons = courseLessons.filter((lesson) =>
       completedLessonIds.has(lesson.id)
@@ -503,19 +611,17 @@ export default async function TeacherStudentReportPage({
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/teacher/gradebook"
-          className="text-sm font-medium text-blue-600 underline"
+          className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
         >
           ← Back to gradebook
         </Link>
+      </div>
 
-        <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-          Student Report
-        </p>
-
-        <div className="mt-4 flex flex-wrap items-start justify-between gap-5">
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-5 px-6 py-6">
           <div className="flex items-start gap-4">
             <UserAvatar
               src={student.avatar_url}
@@ -525,79 +631,98 @@ export default async function TeacherStudentReportPage({
             />
 
             <div>
-              <h2 className="text-3xl font-bold text-slate-900">
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+                Student report
+              </p>
+
+              <h2 className="mt-2 text-3xl font-bold md:text-4xl">
                 {student.full_name || student.email || 'Unnamed student'}
               </h2>
 
-              <p className="mt-2 text-slate-600">
+              <p className="mt-2 text-slate-300">
                 {student.email || 'No email available'}
               </p>
 
-              <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-500">
-                {student.role || 'student'} · Joined{' '}
-                {formatDate(student.created_at)}
+              <p className="mt-2 text-xs uppercase tracking-[0.16em] text-slate-400">
+                {student.role || 'student'} · Joined {formatDate(student.created_at)}
               </p>
             </div>
           </div>
 
-          <span
-            className={`rounded-full px-5 py-3 text-sm font-bold ${getRiskBadgeClass(
-              risk.riskLevel
-            )}`}
-          >
-            {risk.riskLevel} risk
-          </span>
-        </div>
-      </div>
+          <div className="flex flex-wrap items-start gap-3">
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-400 text-black">
+                  <Sparkles className="h-5 w-5" />
+                </div>
 
-      <div className="grid gap-6 md:grid-cols-5">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Overall progress</p>
-          <p className="mt-2 text-3xl font-bold text-blue-700">
-            {progressPercentage}%
-          </p>
-          <p className="mt-1 text-sm text-slate-600">
-            {completedLessons}/{totalLessons} lessons
-          </p>
-        </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Premium student report
+                  </p>
+                  <p className="text-sm text-slate-300">
+                    Progress, support risk, quizzes, feedback, and certificates.
+                  </p>
+                </div>
+              </div>
+            </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Quiz average</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">
-            {quizAverage === null ? '—' : `${quizAverage}%`}
-          </p>
-          <p className="mt-1 text-sm text-slate-600">
-            {attemptedQuizzes}/{totalQuizzes} quizzes attempted
-          </p>
+            <span
+              className={`rounded-full px-5 py-3 text-sm font-bold ${getRiskBadgeClass(
+                risk.riskLevel
+              )}`}
+            >
+              {risk.riskLevel} risk
+            </span>
+          </div>
         </div>
+      </section>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Failed attempts</p>
-          <p className="mt-2 text-3xl font-bold text-red-600">
-            {failedAttempts}
-          </p>
-          <p className="mt-1 text-sm text-slate-600">Quiz attempts not passed</p>
-        </div>
+      <section className="grid gap-6 md:grid-cols-5">
+        <StatCard
+          label="Overall progress"
+          value={`${progressPercentage}%`}
+          note={`${completedLessons}/${totalLessons} lessons`}
+          icon={<GraduationCap className="h-5 w-5" />}
+          tone="gold"
+        />
+        <StatCard
+          label="Quiz average"
+          value={quizAverage === null ? '—' : `${quizAverage}%`}
+          note={`${attemptedQuizzes}/${totalQuizzes} quizzes attempted`}
+          icon={<ClipboardList className="h-5 w-5" />}
+          tone="slate"
+        />
+        <StatCard
+          label="Failed attempts"
+          value={failedAttempts}
+          note="Quiz attempts not passed"
+          icon={<AlertTriangle className="h-5 w-5" />}
+          tone="red"
+        />
+        <StatCard
+          label="Teacher action"
+          value={pendingFeedback}
+          note="Pending feedback requests"
+          icon={<MessageSquareMore className="h-5 w-5" />}
+          tone="amber"
+        />
+        <StatCard
+          label="Certificates issued"
+          value={issuedCertificates}
+          note="Official completions"
+          icon={<Award className="h-5 w-5" />}
+          tone="emerald"
+        />
+      </section>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Teacher action</p>
-          <p className="mt-2 text-3xl font-bold text-amber-600">
-            {pendingFeedback}
-          </p>
-          <p className="mt-1 text-sm text-slate-600">Pending feedback requests</p>
-        </div>
-
-        <div className="rounded-3xl border border-green-200 bg-green-50 p-6 shadow-sm">
-          <p className="text-sm text-green-700">Certificates issued</p>
-          <p className="mt-2 text-3xl font-bold text-green-700">
-            {issuedCertificates}
-          </p>
-          <p className="mt-1 text-sm text-green-700">Official completions</p>
-        </div>
-      </div>
-
-      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-xl font-bold text-slate-900">Risk reasons</h3>
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <SectionHeader
+          eyebrow="Risk"
+          title="Risk reasons"
+          description="This student’s current support signals based on progress, quiz performance, reflections, and pending feedback."
+          icon={<ShieldAlert className="h-5 w-5" />}
+        />
 
         <div className="mt-4 flex flex-wrap gap-2">
           {risk.riskReasons.map((reason) => (
@@ -609,10 +734,10 @@ export default async function TeacherStudentReportPage({
             </span>
           ))}
         </div>
-      </div>
+      </section>
 
       {courses.length === 0 ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <h3 className="text-xl font-bold text-slate-900">
             No course report available
           </h3>
@@ -625,7 +750,7 @@ export default async function TeacherStudentReportPage({
         <div className="space-y-8">
           {courses.map((course) => {
             const courseLessons = getCourseLessons(course.id)
-            const certificateInfo = getCourseCertificateStatus(courseLessons)
+            const certificateInfo = getCourseCertificateStatus(course.id, courseLessons)
             const courseCertificate = getCourseCertificate(course.id)
 
             const courseCompletedLessons = courseLessons.filter((lesson) =>
@@ -642,11 +767,11 @@ export default async function TeacherStudentReportPage({
             return (
               <section
                 key={course.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
+                    <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-700">
                       Course report
                     </p>
 
@@ -668,7 +793,7 @@ export default async function TeacherStudentReportPage({
                       Certificate: {certificateInfo.status}
                     </span>
 
-                    <span className="rounded-full bg-blue-100 px-4 py-2 text-sm font-bold text-blue-700">
+                    <span className="rounded-full bg-amber-100 px-4 py-2 text-sm font-bold text-amber-900">
                       {courseProgress}%
                     </span>
                   </div>
@@ -678,24 +803,21 @@ export default async function TeacherStudentReportPage({
                   <div className="rounded-2xl bg-slate-50 p-4">
                     <p className="text-sm text-slate-500">Lessons</p>
                     <p className="mt-2 text-2xl font-bold text-slate-900">
-                      {certificateInfo.courseCompletedLessons}/
-                      {courseLessons.length}
+                      {certificateInfo.courseCompletedLessons}/{courseLessons.length}
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-slate-50 p-4">
                     <p className="text-sm text-slate-500">Reflections</p>
                     <p className="mt-2 text-2xl font-bold text-slate-900">
-                      {certificateInfo.courseReflectionsSubmitted}/
-                      {courseLessons.length}
+                      {certificateInfo.courseReflectionsSubmitted}/{courseLessons.length}
                     </p>
                   </div>
 
                   <div className="rounded-2xl bg-slate-50 p-4">
                     <p className="text-sm text-slate-500">Final quizzes</p>
                     <p className="mt-2 text-2xl font-bold text-slate-900">
-                      {certificateInfo.passedFinalQuizzes}/
-                      {certificateInfo.totalFinalQuizzes}
+                      {certificateInfo.passedFinalQuizzes}/{certificateInfo.totalFinalQuizzes}
                     </p>
                   </div>
 
@@ -708,8 +830,8 @@ export default async function TeacherStudentReportPage({
                 </div>
 
                 {courseCertificate && (
-                  <div className="mt-5 rounded-2xl border border-green-200 bg-green-50 p-4">
-                    <p className="font-semibold text-green-800">
+                  <div className="mt-5 rounded-3xl border border-emerald-200 bg-emerald-50 p-4">
+                    <p className="font-semibold text-emerald-800">
                       Certificate record
                     </p>
 
@@ -725,14 +847,14 @@ export default async function TeacherStudentReportPage({
                     <div className="mt-4 flex flex-wrap gap-3">
                       <Link
                         href={`/certificates/${courseCertificate.id}`}
-                        className="rounded-xl bg-green-600 px-4 py-2 font-semibold text-white transition hover:bg-green-700"
+                        className="rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white transition hover:bg-emerald-700"
                       >
                         Open certificate
                       </Link>
 
                       <Link
                         href={`/certificates/verify/${courseCertificate.verification_code}`}
-                        className="rounded-xl border border-green-300 bg-white px-4 py-2 font-semibold text-green-700 transition hover:bg-green-50"
+                        className="rounded-xl border border-emerald-300 bg-white px-4 py-2 font-semibold text-emerald-700 transition hover:bg-emerald-50"
                       >
                         Verify
                       </Link>
@@ -743,15 +865,14 @@ export default async function TeacherStudentReportPage({
                 <div className="mt-6">
                   <div className="flex items-center justify-between text-sm text-slate-600">
                     <span>
-                      {courseCompletedLessons}/{courseLessons.length} lessons
-                      completed
+                      {courseCompletedLessons}/{courseLessons.length} lessons completed
                     </span>
                     <span>{courseProgress}%</span>
                   </div>
 
                   <div className="mt-2 h-3 overflow-hidden rounded-full bg-slate-200">
                     <div
-                      className="h-full rounded-full bg-blue-600"
+                      className="h-full rounded-full bg-amber-400"
                       style={{ width: `${courseProgress}%` }}
                     />
                   </div>
@@ -771,7 +892,7 @@ export default async function TeacherStudentReportPage({
                       return (
                         <article
                           key={lesson.id}
-                          className="rounded-2xl border border-slate-200 bg-slate-50 p-5"
+                          className="rounded-3xl border border-slate-200 bg-slate-50 p-5"
                         >
                           <div className="flex flex-wrap items-start justify-between gap-4">
                             <div>
@@ -790,7 +911,7 @@ export default async function TeacherStudentReportPage({
 
                             <Link
                               href={`/lessons/${lesson.slug}`}
-                              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                              className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                             >
                               Open lesson
                             </Link>
@@ -864,7 +985,7 @@ export default async function TeacherStudentReportPage({
                                           <span
                                             className={`rounded-full px-3 py-1 text-xs font-bold ${
                                               bestAttempt.passed
-                                                ? 'bg-green-100 text-green-700'
+                                                ? 'bg-emerald-100 text-emerald-700'
                                                 : 'bg-red-100 text-red-700'
                                             }`}
                                           >
@@ -897,42 +1018,35 @@ export default async function TeacherStudentReportPage({
                           )}
 
                           {reflection && (
-                            <div className="mt-5 rounded-xl border border-blue-100 bg-blue-50 p-4">
+                            <div className="mt-5 rounded-xl border border-amber-200 bg-amber-50 p-4">
                               <p className="text-sm font-semibold text-slate-900">
                                 Reflection
                               </p>
 
                               {reflection.learned && (
                                 <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                                  <span className="font-semibold">
-                                    Learned:
-                                  </span>{' '}
+                                  <span className="font-semibold">Learned:</span>{' '}
                                   {reflection.learned}
                                 </p>
                               )}
 
                               {reflection.difficult && (
                                 <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                                  <span className="font-semibold">
-                                    Difficult:
-                                  </span>{' '}
+                                  <span className="font-semibold">Difficult:</span>{' '}
                                   {reflection.difficult}
                                 </p>
                               )}
 
                               {reflection.next_step && (
                                 <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">
-                                  <span className="font-semibold">
-                                    Next step:
-                                  </span>{' '}
+                                  <span className="font-semibold">Next step:</span>{' '}
                                   {reflection.next_step}
                                 </p>
                               )}
 
                               <p className="mt-3 text-xs text-slate-500">
-                                Confidence:{' '}
-                                {reflection.confidence_level ?? '—'} · Updated:{' '}
-                                {formatDate(reflection.updated_at)}
+                                Confidence: {reflection.confidence_level ?? '—'} ·
+                                Updated: {formatDate(reflection.updated_at)}
                               </p>
                             </div>
                           )}
@@ -945,7 +1059,7 @@ export default async function TeacherStudentReportPage({
                 <div className="mt-6">
                   <Link
                     href={`/courses/${course.slug}`}
-                    className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                    className="inline-flex rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                   >
                     Open course overview
                   </Link>
@@ -956,8 +1070,13 @@ export default async function TeacherStudentReportPage({
         </div>
       )}
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-2xl font-bold text-slate-900">Quiz history</h3>
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <SectionHeader
+          eyebrow="History"
+          title="Quiz history"
+          description="All recorded quiz attempts for this student across your visible courses."
+          icon={<ClipboardList className="h-5 w-5" />}
+        />
 
         {quizAttempts.length === 0 ? (
           <p className="mt-4 text-slate-600">No quiz attempts yet.</p>
@@ -981,15 +1100,14 @@ export default async function TeacherStudentReportPage({
                       </p>
 
                       <p className="mt-1 text-sm text-slate-600">
-                        {lesson?.title || 'Lesson'} ·{' '}
-                        {formatDate(attempt.created_at)}
+                        {lesson?.title || 'Lesson'} · {formatDate(attempt.created_at)}
                       </p>
                     </div>
 
                     <span
                       className={`rounded-full px-3 py-1 text-sm font-bold ${
                         attempt.passed
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-emerald-100 text-emerald-700'
                           : 'bg-red-100 text-red-700'
                       }`}
                     >
@@ -1008,17 +1126,20 @@ export default async function TeacherStudentReportPage({
         )}
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-2xl font-bold text-slate-900">Feedback history</h3>
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <SectionHeader
+          eyebrow="History"
+          title="Feedback history"
+          description="All feedback requests and teacher replies linked to this student."
+          icon={<UserRound className="h-5 w-5" />}
+        />
 
         {feedbackRequests.length === 0 ? (
           <p className="mt-4 text-slate-600">No feedback requests yet.</p>
         ) : (
           <div className="mt-5 space-y-4">
             {feedbackRequests.map((request) => {
-              const lesson = lessons.find(
-                (item) => item.id === request.lesson_id
-              )
+              const lesson = lessons.find((item) => item.id === request.lesson_id)
 
               return (
                 <article
@@ -1039,10 +1160,10 @@ export default async function TeacherStudentReportPage({
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-bold ${
                         request.status === 'reviewed'
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-emerald-100 text-emerald-700'
                           : request.status === 'closed'
-                            ? 'bg-slate-100 text-slate-700'
-                            : 'bg-amber-100 text-amber-700'
+                          ? 'bg-slate-100 text-slate-700'
+                          : 'bg-amber-100 text-amber-900'
                       }`}
                     >
                       {request.status}
@@ -1060,10 +1181,13 @@ export default async function TeacherStudentReportPage({
                   </div>
 
                   {request.teacher_feedback && (
-                    <div className="mt-4 rounded-xl border border-green-200 bg-green-50 p-4">
-                      <p className="text-sm font-semibold text-green-800">
-                        Teacher feedback
-                      </p>
+                    <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                      <div className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-700" />
+                        <p className="text-sm font-semibold text-emerald-800">
+                          Teacher feedback
+                        </p>
+                      </div>
 
                       <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                         {request.teacher_feedback}
@@ -1079,7 +1203,7 @@ export default async function TeacherStudentReportPage({
                     <div className="mt-4">
                       <Link
                         href="/teacher/feedback"
-                        className="inline-flex rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700"
+                        className="inline-flex rounded-xl bg-slate-900 px-4 py-2 font-semibold text-amber-300 transition hover:bg-black"
                       >
                         Reply to request
                       </Link>

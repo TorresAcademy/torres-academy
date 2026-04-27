@@ -1,9 +1,20 @@
 // src/components/teacher/teacher-course-form.tsx
 'use client'
 
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import {
+  BookOpen,
+  CalendarDays,
+  Clock3,
+  Eye,
+  Globe2,
+  Lock,
+  Settings2,
+  Sparkles,
+} from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 
 type CourseStatus = 'draft' | 'published' | 'archived'
@@ -66,6 +77,39 @@ function toIsoOrNull(value: string) {
   if (Number.isNaN(date.getTime())) return null
 
   return date.toISOString()
+}
+
+function SectionCard({
+  title,
+  description,
+  icon,
+  children,
+}: {
+  title: string
+  description?: string
+  icon: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h3 className="text-xl font-bold text-slate-900">{title}</h3>
+          {description && (
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              {description}
+            </p>
+          )}
+        </div>
+
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+          {icon}
+        </div>
+      </div>
+
+      <div className="mt-6">{children}</div>
+    </section>
+  )
 }
 
 export default function TeacherCourseForm({
@@ -199,54 +243,66 @@ export default function TeacherCourseForm({
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"
-    >
-      <div className="space-y-6">
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Course title
-          </label>
-          <input
-            type="text"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="English Foundations"
-            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-          />
-        </div>
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <SectionCard
+        title="Course basics"
+        description="Set the course title, slug, and summary students will understand."
+        icon={<BookOpen className="h-5 w-5" />}
+      >
+        <div className="grid gap-6">
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Course title
+            </label>
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="English Foundations"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
+            />
+          </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Slug
-          </label>
-          <input
-            type="text"
-            value={slug}
-            onChange={(e) => {
-              setSlugTouched(true)
-              setSlug(e.target.value)
-            }}
-            placeholder="english-foundations"
-            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-          />
-        </div>
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Slug
+            </label>
+            <input
+              type="text"
+              value={slug}
+              onChange={(e) => {
+                setSlugTouched(true)
+                setSlug(e.target.value)
+              }}
+              placeholder="english-foundations"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
+            />
+            <p className="mt-2 text-sm text-slate-500">
+              This becomes the course URL path.
+            </p>
+          </div>
 
-        <div>
-          <label className="mb-2 block text-sm font-medium text-slate-700">
-            Description
-          </label>
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="A short free course for beginner students."
-            rows={5}
-            className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-          />
+          <div>
+            <label className="mb-2 block text-sm font-medium text-slate-700">
+              Description
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="A short free course for beginner students."
+              rows={5}
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
+            />
+          </div>
         </div>
+      </SectionCard>
 
-        <div className="grid gap-4 md:grid-cols-2">
+      <SectionCard
+        title="Lifecycle and visibility"
+        description="Control whether the course is a draft, live, or archived, and whether it appears in the free catalog."
+        icon={<Settings2 className="h-5 w-5" />}
+      >
+        <div className="grid gap-6 md:grid-cols-2">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
               Course lifecycle
@@ -254,7 +310,7 @@ export default function TeacherCourseForm({
             <select
               value={status}
               onChange={(e) => setStatus(e.target.value as CourseStatus)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
             >
               <option value="draft">Draft</option>
               <option value="published">Published</option>
@@ -274,7 +330,7 @@ export default function TeacherCourseForm({
             <select
               value={recommendedDurationLabel}
               onChange={(e) => setRecommendedDurationLabel(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
             >
               {DURATION_OPTIONS.map((option) => (
                 <option key={option || 'none'} value={option}>
@@ -289,30 +345,53 @@ export default function TeacherCourseForm({
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          <label className="flex items-center gap-3 rounded-2xl border border-slate-200 p-4">
+        <div className="mt-6 grid gap-4 md:grid-cols-2">
+          <label className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
             <input
               type="checkbox"
               checked={isFree}
               onChange={(e) => setIsFree(e.target.checked)}
-              className="h-4 w-4"
+              className="mt-1 h-4 w-4"
             />
             <div>
-              <p className="font-medium text-slate-900">Free course</p>
-              <p className="text-sm text-slate-500">Visible in free catalog</p>
+              <div className="flex items-center gap-2">
+                <Globe2 className="h-4 w-4 text-amber-700" />
+                <p className="font-medium text-slate-900">Free course</p>
+              </div>
+              <p className="mt-1 text-sm text-slate-500">
+                Visible in the free catalog.
+              </p>
             </div>
           </label>
 
-          <div className="rounded-2xl border border-slate-200 p-4">
-            <p className="font-medium text-slate-900">Visibility rule</p>
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center gap-2">
+              {status === 'published' ? (
+                <Eye className="h-4 w-4 text-emerald-700" />
+              ) : (
+                <Lock className="h-4 w-4 text-slate-600" />
+              )}
+              <p className="font-medium text-slate-900">Visibility rule</p>
+            </div>
+
             <p className="mt-1 text-sm text-slate-500">
               The course is student-visible only when lifecycle is set to
               published.
             </p>
+
+            <div className="mt-3 inline-flex rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-700">
+              {status === 'published' ? 'Currently visible to students' : 'Currently hidden from students'}
+            </div>
           </div>
         </div>
+      </SectionCard>
 
-        <div className="grid gap-4 md:grid-cols-2">
+      <SectionCard
+        title="Seasonal timing"
+        description="Set enrollment and teaching windows for the course."
+        icon={<CalendarDays className="h-5 w-5" />}
+      >
+        <div className="grid gap-6 md:grid-cols-2">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
               Enrollment opens
@@ -321,7 +400,7 @@ export default function TeacherCourseForm({
               type="datetime-local"
               value={enrollmentOpensAt}
               onChange={(e) => setEnrollmentOpensAt(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
             />
           </div>
 
@@ -333,12 +412,10 @@ export default function TeacherCourseForm({
               type="datetime-local"
               value={enrollmentClosesAt}
               onChange={(e) => setEnrollmentClosesAt(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
             />
           </div>
-        </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-700">
               Course starts
@@ -347,7 +424,7 @@ export default function TeacherCourseForm({
               type="datetime-local"
               value={courseStartsAt}
               onChange={(e) => setCourseStartsAt(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
             />
           </div>
 
@@ -359,38 +436,68 @@ export default function TeacherCourseForm({
               type="datetime-local"
               value={courseEndsAt}
               onChange={(e) => setCourseEndsAt(e.target.value)}
-              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+              className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
             />
           </div>
         </div>
-      </div>
+
+        <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex items-center gap-2">
+            <Clock3 className="h-4 w-4 text-amber-700" />
+            <p className="font-medium text-slate-900">Timing note</p>
+          </div>
+
+          <p className="mt-1 text-sm text-slate-500">
+            Enrollment dates control when students can join. Course dates help
+            define the teaching season and pacing window.
+          </p>
+        </div>
+      </SectionCard>
 
       {errorMessage && (
-        <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
+        <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
           {errorMessage}
         </p>
       )}
 
-      <div className="mt-8 flex flex-wrap gap-3">
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-        >
-          {loading
-            ? 'Saving...'
-            : mode === 'create'
-              ? 'Create course'
-              : 'Save changes'}
-        </button>
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="font-semibold text-slate-900">
+                {mode === 'create' ? 'Ready to create this course?' : 'Ready to save your changes?'}
+              </p>
+              <p className="text-sm text-slate-500">
+                You can always return later to update lessons, modules, and visibility.
+              </p>
+            </div>
+          </div>
 
-        <Link
-          href="/teacher/courses"
-          className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-        >
-          Cancel
-        </Link>
-      </div>
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black disabled:opacity-60"
+            >
+              {loading
+                ? 'Saving...'
+                : mode === 'create'
+                ? 'Create course'
+                : 'Save changes'}
+            </button>
+
+            <Link
+              href="/teacher/courses"
+              className="rounded-xl border border-slate-300 bg-white px-5 py-3 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
+            >
+              Cancel
+            </Link>
+          </div>
+        </div>
+      </section>
     </form>
   )
 }

@@ -1,6 +1,19 @@
+// src/app/teacher/lessons/[id]/edit/page.tsx
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import {
+  BookOpen,
+  Eye,
+  FileText,
+  FolderOpen,
+  Image as ImageIcon,
+  MessageSquareMore,
+  MonitorPlay,
+  Sparkles,
+  Video,
+} from 'lucide-react'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 import CourseModuleSelect from '@/components/teacher/course-module-select'
 
@@ -9,14 +22,14 @@ type TeacherEditLessonPageProps = {
 }
 
 type Course = {
-  id: number
+  id: string
   title: string
   slug: string
 }
 
 type Module = {
-  id: number
-  course_id: number
+  id: string
+  course_id: string
   title: string
   position: number
   is_published: boolean
@@ -31,13 +44,85 @@ function slugify(value: string) {
     .replace(/-+/g, '-')
 }
 
+function sameId(a: unknown, b: unknown) {
+  return String(a ?? '') === String(b ?? '')
+}
+
+function SectionCard({
+  title,
+  description,
+  icon,
+  children,
+  tone = 'white',
+}: {
+  title: string
+  description?: string
+  icon: ReactNode
+  children: ReactNode
+  tone?: 'white' | 'amber' | 'slate'
+}) {
+  const tones = {
+    white: 'border-slate-200 bg-white',
+    amber: 'border-amber-200 bg-amber-50',
+    slate: 'border-slate-200 bg-slate-50',
+  } as const
+
+  return (
+    <section className={`rounded-[2rem] border p-6 shadow-sm ${tones[tone]}`}>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h3 className="text-2xl font-bold text-slate-900">{title}</h3>
+          {description && (
+            <p className="mt-2 text-sm leading-7 text-slate-600">
+              {description}
+            </p>
+          )}
+        </div>
+
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+          {icon}
+        </div>
+      </div>
+
+      <div className="mt-6">{children}</div>
+    </section>
+  )
+}
+
+function ToolButton({
+  href,
+  label,
+  tone = 'default',
+}: {
+  href: string
+  label: string
+  tone?: 'default' | 'dark' | 'emerald' | 'amber'
+}) {
+  const tones = {
+    default:
+      'border border-slate-300 bg-white text-slate-900 hover:border-amber-400 hover:text-amber-700',
+    dark: 'bg-slate-900 text-amber-300 hover:bg-black',
+    emerald: 'bg-emerald-600 text-white hover:bg-emerald-700',
+    amber: 'bg-amber-400 text-black hover:bg-amber-300',
+  } as const
+
+  return (
+    <Link
+      href={href}
+      className={`rounded-xl px-4 py-3 text-center font-semibold transition ${tones[tone]}`}
+    >
+      {label}
+    </Link>
+  )
+}
+
 export default async function TeacherEditLessonPage({
   params,
 }: TeacherEditLessonPageProps) {
   const { id } = await params
-  const lessonId = Number(id)
+  const lessonId = String(id || '').trim()
 
-  if (!lessonId || Number.isNaN(lessonId)) {
+  if (!lessonId) {
     notFound()
   }
 
@@ -81,7 +166,15 @@ export default async function TeacherEditLessonPage({
         .eq('teacher_id', user.id)
         .order('title', { ascending: true })
 
-  const courses = (coursesData ?? []) as Course[]
+  const courses = ((coursesData ?? []) as Array<{
+    id: string | number
+    title: string
+    slug: string
+  }>).map((course) => ({
+    ...course,
+    id: String(course.id),
+  })) as Course[]
+
   const courseIds = courses.map((course) => course.id)
 
   let modules: Module[] = []
@@ -94,7 +187,17 @@ export default async function TeacherEditLessonPage({
       .order('course_id', { ascending: true })
       .order('position', { ascending: true })
 
-    modules = (modulesData ?? []) as Module[]
+    modules = ((modulesData ?? []) as Array<{
+      id: string | number
+      course_id: string | number
+      title: string
+      position: number
+      is_published: boolean
+    }>).map((module) => ({
+      ...module,
+      id: String(module.id),
+      course_id: String(module.course_id),
+    })) as Module[]
   }
 
   async function updateLesson(formData: FormData) {
@@ -103,9 +206,9 @@ export default async function TeacherEditLessonPage({
     const { supabase, user, profile } = await requireTeacherOrAdmin()
     const isAdmin = profile.role === 'admin'
 
-    const courseId = Number(formData.get('course_id'))
+    const courseId = String(formData.get('course_id') || '').trim()
     const moduleIdRaw = String(formData.get('module_id') || '').trim()
-    const moduleId = moduleIdRaw ? Number(moduleIdRaw) : null
+    const moduleId = moduleIdRaw || null
 
     const title = String(formData.get('title') || '').trim()
     const slugValue = String(formData.get('slug') || '').trim()
@@ -164,7 +267,7 @@ export default async function TeacherEditLessonPage({
         .eq('id', moduleId)
         .maybeSingle()
 
-      if (!targetModule || targetModule.course_id !== courseId) {
+      if (!targetModule || !sameId(targetModule.course_id, courseId)) {
         redirect(`/teacher/lessons/${lessonId}/edit`)
       }
     }
@@ -210,46 +313,70 @@ export default async function TeacherEditLessonPage({
     redirect(`/teacher/lessons/${lessonId}/edit`)
   }
 
+  const assignedModule = modules.find((module) =>
+    sameId(module.id, lesson.module_id)
+  )
+
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <Link
           href="/teacher/lessons"
-          className="text-sm font-medium text-blue-600 underline"
+          className="inline-flex items-center rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
         >
           ← Back to lessons
         </Link>
-
-        <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-          Unified Lesson Editor
-        </p>
-
-        <h2 className="mt-2 text-3xl font-bold text-slate-900">
-          Edit lesson
-        </h2>
-
-        <p className="mt-2 text-slate-600">
-          Manage lesson content, module assignment, teacher explanation,
-          encouragement, media, quizzes, and presentation-ready teaching notes.
-        </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
-        <form
-          action={updateLesson}
-          className="space-y-6 rounded-3xl border border-slate-200 bg-white p-8 shadow-sm"
-        >
-          <section>
-            <h3 className="text-2xl font-bold text-slate-900">
-              Lesson details
-            </h3>
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+              Unified Lesson Editor
+            </p>
 
-            <div className="mt-6 grid gap-5">
+            <h2 className="mt-2 text-3xl font-bold md:text-4xl">
+              Edit lesson
+            </h2>
+
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+              Manage lesson content, module assignment, teacher explanation,
+              encouragement, media, quizzes, and presentation-ready teaching notes.
+            </p>
+          </div>
+
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-400 text-black">
+                <Sparkles className="h-5 w-5" />
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Premium lesson editor
+                </p>
+                <p className="text-sm text-slate-300">
+                  Teaching content, presentation notes, and lesson tools.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <form action={updateLesson} className="space-y-6">
+          <SectionCard
+            title="Lesson details"
+            description="Edit where this lesson belongs and manage the main learning content."
+            icon={<BookOpen className="h-5 w-5" />}
+          >
+            <div className="grid gap-5">
               <CourseModuleSelect
                 courses={courses}
                 modules={modules}
-                defaultCourseId={lesson.course_id}
-                defaultModuleId={lesson.module_id}
+                defaultCourseId={String(lesson.course_id)}
+                defaultModuleId={lesson.module_id ? String(lesson.module_id) : null}
               />
 
               <div>
@@ -261,7 +388,7 @@ export default async function TeacherEditLessonPage({
                   name="title"
                   defaultValue={lesson.title}
                   required
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                 />
               </div>
 
@@ -274,7 +401,7 @@ export default async function TeacherEditLessonPage({
                   name="slug"
                   defaultValue={lesson.slug}
                   required
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                 />
 
                 <p className="mt-2 text-xs text-slate-500">
@@ -291,7 +418,7 @@ export default async function TeacherEditLessonPage({
                   name="content"
                   defaultValue={lesson.content ?? ''}
                   rows={12}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                   placeholder="Write the main lesson content here..."
                 />
               </div>
@@ -304,7 +431,7 @@ export default async function TeacherEditLessonPage({
                 <input
                   name="video_url"
                   defaultValue={lesson.video_url ?? ''}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                   placeholder="Optional old video URL. Protected media is managed separately."
                 />
               </div>
@@ -319,24 +446,19 @@ export default async function TeacherEditLessonPage({
                   type="number"
                   min="1"
                   defaultValue={lesson.position ?? 1}
-                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                 />
               </div>
             </div>
-          </section>
+          </SectionCard>
 
-          <section className="rounded-3xl border border-blue-100 bg-blue-50 p-6">
-            <h3 className="text-2xl font-bold text-slate-900">
-              Teacher explanation
-            </h3>
-
-            <p className="mt-2 text-sm text-slate-600">
-              This appears in the lesson page and also in Presentation View. Use
-              it for speaking notes, clarification, examples, or classroom
-              teaching prompts.
-            </p>
-
-            <div className="mt-5">
+          <SectionCard
+            title="Teacher explanation"
+            description="This appears in the lesson page and also in Presentation View. Use it for speaking notes, clarification, examples, or classroom teaching prompts."
+            icon={<FileText className="h-5 w-5" />}
+            tone="slate"
+          >
+            <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
                 Explanation from teacher
               </label>
@@ -345,23 +467,19 @@ export default async function TeacherEditLessonPage({
                 name="teacher_explanation"
                 defaultValue={lesson.teacher_explanation ?? ''}
                 rows={6}
-                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
                 placeholder="Example: Start by asking students what they notice before reading the dialogue..."
               />
             </div>
-          </section>
+          </SectionCard>
 
-          <section className="rounded-3xl border border-amber-100 bg-amber-50 p-6">
-            <h3 className="text-2xl font-bold text-slate-900">
-              Encouragement note
-            </h3>
-
-            <p className="mt-2 text-sm text-slate-600">
-              This is the highlighted teaching note shown under the explanation.
-              It also appears in Presentation View.
-            </p>
-
-            <div className="mt-5 grid gap-5">
+          <SectionCard
+            title="Encouragement note"
+            description="This is the highlighted teaching note shown under the explanation. It also appears in Presentation View."
+            icon={<MessageSquareMore className="h-5 w-5" />}
+            tone="amber"
+          >
+            <div className="grid gap-5">
               <div>
                 <label className="mb-2 block text-sm font-medium text-slate-700">
                   Encouragement title
@@ -370,7 +488,7 @@ export default async function TeacherEditLessonPage({
                 <input
                   name="encouragement_title"
                   defaultValue={lesson.encouragement_title ?? ''}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
                   placeholder="Teaching note"
                 />
               </div>
@@ -384,19 +502,19 @@ export default async function TeacherEditLessonPage({
                   name="encouragement_text"
                   defaultValue={lesson.encouragement_text ?? ''}
                   rows={5}
-                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-blue-500"
+                  className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 outline-none focus:border-amber-500"
                   placeholder="Example: Encourage students to repeat the dialogue aloud in pairs..."
                 />
               </div>
             </div>
-          </section>
+          </SectionCard>
 
-          <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-            <h3 className="text-2xl font-bold text-slate-900">
-              Publishing
-            </h3>
-
-            <label className="mt-5 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white p-4">
+          <SectionCard
+            title="Publishing"
+            description="Choose whether this lesson should be student-visible immediately."
+            icon={<Eye className="h-5 w-5" />}
+          >
+            <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
               <input
                 name="is_published"
                 type="checkbox"
@@ -411,97 +529,116 @@ export default async function TeacherEditLessonPage({
                 </p>
               </div>
             </label>
-          </section>
+          </SectionCard>
 
-          <button
-            type="submit"
-            className="rounded-xl bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700"
-          >
-            Save lesson
-          </button>
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <p className="font-semibold text-slate-900">
+                  Ready to save this lesson?
+                </p>
+                <p className="text-sm text-slate-500">
+                  Changes will update the lesson page, course page, and presentation view.
+                </p>
+              </div>
+
+              <button
+                type="submit"
+                className="rounded-xl bg-slate-900 px-6 py-3 font-semibold text-amber-300 transition hover:bg-black"
+              >
+                Save lesson
+              </button>
+            </div>
+          </section>
         </form>
 
         <aside className="space-y-6">
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-xl font-bold text-slate-900">
-              Lesson tools
-            </h3>
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-xl font-bold text-slate-900">Lesson tools</h3>
 
             <div className="mt-5 grid gap-3">
-              <Link
+              <ToolButton
                 href={`/teacher/lessons/${lesson.id}/media`}
-                className="rounded-xl bg-slate-900 px-4 py-3 text-center font-semibold text-white transition hover:bg-slate-800"
-              >
-                Manage media
-              </Link>
+                label="Manage media"
+                tone="dark"
+              />
 
-              <Link
+              <ToolButton
                 href={`/teacher/lessons/${lesson.id}/quiz`}
-                className="rounded-xl bg-purple-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-purple-700"
-              >
-                Quiz Builder
-              </Link>
+                label="Quiz Builder"
+                tone="amber"
+              />
 
-              <Link
+              <ToolButton
                 href={`/teacher/lessons/${lesson.id}/submissions`}
-                className="rounded-xl bg-emerald-600 px-4 py-3 text-center font-semibold text-white transition hover:bg-emerald-700"
-              >
-                Submission tasks
-              </Link>
+                label="Submission tasks"
+                tone="emerald"
+              />
 
-              <Link
+              <ToolButton
                 href={`/lessons/${lesson.slug}`}
-                className="rounded-xl border border-slate-300 bg-white px-4 py-3 text-center font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
-              >
-                Preview lesson
-              </Link>
+                label="Preview lesson"
+              />
 
-              <Link
+              <ToolButton
                 href={`/lessons/${lesson.slug}/presentation`}
-                className="rounded-xl border border-blue-300 bg-blue-50 px-4 py-3 text-center font-semibold text-blue-700 transition hover:bg-blue-100"
-              >
-                Presentation View
-              </Link>
+                label="Presentation View"
+              />
             </div>
-          </div>
+          </section>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-xl font-bold text-slate-900">
-              Media status
-            </h3>
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-xl font-bold text-slate-900">Media status</h3>
 
-            <p className="mt-3 text-sm text-slate-600">
-              {lesson.media_path
-                ? lesson.media_type === 'video'
-                  ? 'This lesson has a protected video uploaded.'
-                  : 'This lesson has a protected image uploaded.'
-                : 'No protected media uploaded yet.'}
-            </p>
-          </div>
+            <div className="mt-4 flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+                {lesson.media_path ? (
+                  lesson.media_type === 'video' ? (
+                    <Video className="h-4 w-4" />
+                  ) : (
+                    <ImageIcon className="h-4 w-4" />
+                  )
+                ) : (
+                  <FolderOpen className="h-4 w-4" />
+                )}
+              </div>
 
-          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-            <h3 className="text-xl font-bold text-slate-900">
-              Module status
-            </h3>
+              <p className="text-sm leading-7 text-slate-600">
+                {lesson.media_path
+                  ? lesson.media_type === 'video'
+                    ? 'This lesson has a protected video uploaded.'
+                    : 'This lesson has a protected image uploaded.'
+                  : 'No protected media uploaded yet.'}
+              </p>
+            </div>
+          </section>
 
-            <p className="mt-3 text-sm text-slate-600">
+          <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+            <h3 className="text-xl font-bold text-slate-900">Module status</h3>
+
+            <p className="mt-3 text-sm leading-7 text-slate-600">
               {lesson.module_id
-                ? 'This lesson is currently assigned to a module.'
+                ? `This lesson is currently assigned to ${assignedModule?.title || 'a module'}.`
                 : 'This lesson is not assigned to any module yet.'}
             </p>
-          </div>
+          </section>
 
-          <div className="rounded-3xl border border-blue-200 bg-blue-50 p-6">
-            <h3 className="text-xl font-bold text-slate-900">
-              Presentation mode
-            </h3>
+          <section className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+                <MonitorPlay className="h-4 w-4" />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900">
+                Presentation mode
+              </h3>
+            </div>
 
             <p className="mt-3 text-sm leading-7 text-slate-700">
               Presentation View is designed for projector, tutoring, and
               full-screen teaching. It shows the lesson content with the teacher
               explanation and teaching note beside it.
             </p>
-          </div>
+          </section>
         </aside>
       </div>
     </div>

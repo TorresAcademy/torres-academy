@@ -7,6 +7,13 @@ import LessonQuizCard from '@/components/lesson/lesson-quiz-card'
 import FeedbackRequestCard from '@/components/lesson/feedback-request-card'
 import ProtectedLessonMedia from '@/components/lesson/protected-lesson-media'
 import { LessonSubmissionPanel } from '@/components/lesson/lesson-submission-panel'
+import {
+  ChevronDown,
+  FileText,
+  Image as ImageIcon,
+  MonitorPlay,
+  Video,
+} from 'lucide-react'
 
 type LessonNavigationItem = {
   id: number
@@ -71,6 +78,17 @@ type LessonMedia = {
   originalName: string | null
 }
 
+type LessonMediaItem = {
+  id: string
+  title: string | null
+  description: string | null
+  mediaType: string
+  mimeType: string | null
+  originalName: string | null
+  position: number
+  signedUrl: string | null
+}
+
 type StudentLessonExperienceProps = {
   userId: string
   course: {
@@ -106,6 +124,7 @@ type StudentLessonExperienceProps = {
   quizAttempts: QuizAttempt[]
   finalQuizPassed: boolean
   media: LessonMedia
+  mediaItems?: LessonMediaItem[]
   completeAction: () => Promise<void>
 }
 
@@ -116,6 +135,139 @@ function contentToParagraphs(content: string | null) {
     .split('\n')
     .map((line) => line.trim())
     .filter(Boolean)
+}
+
+function getMediaLabel(item: LessonMediaItem) {
+  return item.title || item.originalName || `Slide ${item.position}`
+}
+
+function LessonMediaAccordion({ items }: { items: LessonMediaItem[] }) {
+  const [openItemId, setOpenItemId] = useState<string | null>(
+    items[0]?.id ?? null
+  )
+
+  if (items.length === 0) return null
+
+  return (
+    <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
+      <div>
+        <p className="text-xs font-semibold uppercase tracking-[0.18em] text-blue-700">
+          Lesson slides
+        </p>
+        <h3 className="mt-2 text-lg font-bold text-slate-900">
+          Lesson resources
+        </h3>
+        <p className="mt-2 text-sm leading-7 text-slate-600">
+          Open one slide at a time to view images, PDFs, videos, and learning
+          resources.
+        </p>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {items.map((item) => {
+          const isOpen = openItemId === item.id
+
+          return (
+            <div
+              key={item.id}
+              className={`rounded-2xl border transition ${
+                isOpen
+                  ? 'border-blue-200 bg-blue-50/40'
+                  : 'border-slate-200 bg-slate-50'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => setOpenItemId(isOpen ? null : item.id)}
+                className="flex w-full items-center justify-between gap-4 p-4 text-left"
+                aria-expanded={isOpen}
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+                    {item.mediaType === 'video' ? (
+                      <Video className="h-4 w-4" />
+                    ) : item.mediaType === 'pdf' || item.mediaType === 'file' ? (
+                      <FileText className="h-4 w-4" />
+                    ) : (
+                      <ImageIcon className="h-4 w-4" />
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="font-semibold text-slate-900">
+                      {getMediaLabel(item)}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      Slide {item.position} · {item.mediaType.toUpperCase()}
+                    </p>
+                  </div>
+                </div>
+
+                <span className="inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-600">
+                  {isOpen ? 'Close' : 'Open'}
+                  <ChevronDown
+                    className={`h-3.5 w-3.5 transition ${
+                      isOpen ? 'rotate-180' : ''
+                    }`}
+                  />
+                </span>
+              </button>
+
+              {isOpen && (
+                <div className="border-t border-slate-200 p-4">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                    {item.description && (
+                      <p className="mb-4 whitespace-pre-wrap text-sm leading-7 text-slate-700">
+                        {item.description}
+                      </p>
+                    )}
+
+                    {!item.signedUrl ? (
+                      <p className="rounded-xl bg-slate-50 p-4 text-sm text-slate-600">
+                        This protected media link is not available right now.
+                      </p>
+                    ) : item.mediaType === 'image' ? (
+                      <img
+                        src={item.signedUrl}
+                        alt={getMediaLabel(item)}
+                        draggable={false}
+                        className="max-h-[720px] w-full rounded-xl object-contain"
+                        onContextMenu={(e) => e.preventDefault()}
+                      />
+                    ) : item.mediaType === 'video' ? (
+                      <video
+                        src={item.signedUrl}
+                        controls
+                        controlsList="nodownload noplaybackrate"
+                        disablePictureInPicture
+                        className="w-full rounded-xl bg-black"
+                        onContextMenu={(e) => e.preventDefault()}
+                      />
+                    ) : item.mediaType === 'pdf' ? (
+                      <iframe
+                        src={item.signedUrl}
+                        title={getMediaLabel(item)}
+                        className="h-[640px] w-full rounded-xl border border-slate-200"
+                      />
+                    ) : (
+                      <a
+                        href={item.signedUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex rounded-xl bg-slate-900 px-4 py-3 font-semibold text-amber-300 transition hover:bg-black"
+                      >
+                        Open resource
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
 }
 
 export default function StudentLessonExperience({
@@ -134,6 +286,7 @@ export default function StudentLessonExperience({
   quizAttempts,
   finalQuizPassed,
   media,
+  mediaItems = [],
   completeAction,
 }: StudentLessonExperienceProps) {
   const supabase = createClient()
@@ -304,6 +457,14 @@ export default function StudentLessonExperience({
             </Link>
 
             <Link
+              href={`/lessons/${lesson.slug}/presentation`}
+              className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-amber-300 transition hover:bg-black"
+            >
+              <MonitorPlay className="h-4 w-4" />
+              Presentation View
+            </Link>
+
+            <Link
               href="/dashboard"
               className="rounded-xl border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
             >
@@ -410,7 +571,11 @@ export default function StudentLessonExperience({
                 )}
               </div>
 
-              <ProtectedLessonMedia media={media} />
+              {mediaItems.length > 0 ? (
+                <LessonMediaAccordion items={mediaItems} />
+              ) : (
+                <ProtectedLessonMedia media={media} />
+              )}
 
               <div className="mt-6 rounded-2xl bg-slate-50 p-5">
                 <h3 className="text-lg font-bold text-slate-900">

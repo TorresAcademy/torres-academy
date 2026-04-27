@@ -1,4 +1,15 @@
+import type { ReactNode } from 'react'
 import Link from 'next/link'
+import {
+  AlertTriangle,
+  BarChart3,
+  BookOpen,
+  ClipboardCheck,
+  GraduationCap,
+  ShieldAlert,
+  Sparkles,
+  UserRound,
+} from 'lucide-react'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 import UserAvatar from '@/components/user-avatar'
 
@@ -36,9 +47,9 @@ type Student = {
 }
 
 function getProgressColor(progress: number) {
-  if (progress >= 75) return 'bg-green-500'
-  if (progress >= 40) return 'bg-blue-500'
-  if (progress > 0) return 'bg-amber-500'
+  if (progress >= 75) return 'bg-emerald-500'
+  if (progress >= 40) return 'bg-amber-400'
+  if (progress > 0) return 'bg-yellow-500'
   return 'bg-red-500'
 }
 
@@ -47,6 +58,99 @@ function getProgressLabel(progress: number) {
   if (progress >= 40) return 'In progress'
   if (progress > 0) return 'Needs support'
   return 'Not started'
+}
+
+function MetricCard({
+  label,
+  value,
+  note,
+  icon,
+  tone = 'slate',
+}: {
+  label: string
+  value: number | string
+  note?: string
+  icon: ReactNode
+  tone?: 'slate' | 'gold' | 'emerald' | 'red'
+}) {
+  const tones = {
+    slate: {
+      card: 'border-slate-200 bg-white',
+      icon: 'bg-slate-900 text-amber-300',
+      label: 'text-slate-600',
+      value: 'text-slate-900',
+    },
+    gold: {
+      card: 'border-amber-200 bg-amber-50',
+      icon: 'bg-amber-400 text-black',
+      label: 'text-amber-900',
+      value: 'text-amber-900',
+    },
+    emerald: {
+      card: 'border-emerald-200 bg-emerald-50',
+      icon: 'bg-emerald-600 text-white',
+      label: 'text-emerald-700',
+      value: 'text-emerald-700',
+    },
+    red: {
+      card: 'border-red-200 bg-red-50',
+      icon: 'bg-red-600 text-white',
+      label: 'text-red-700',
+      value: 'text-red-700',
+    },
+  } as const
+
+  return (
+    <div className={`rounded-3xl border p-5 shadow-sm ${tones[tone].card}`}>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <p className={`text-sm ${tones[tone].label}`}>{label}</p>
+          <p className={`mt-2 text-3xl font-bold ${tones[tone].value}`}>
+            {value}
+          </p>
+          {note && <p className="mt-1 text-xs text-slate-500">{note}</p>}
+        </div>
+
+        <div
+          className={`flex h-11 w-11 items-center justify-center rounded-2xl ${tones[tone].icon}`}
+        >
+          {icon}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SectionHeader({
+  eyebrow,
+  title,
+  description,
+  icon,
+}: {
+  eyebrow: string
+  title: string
+  description?: string
+  icon?: ReactNode
+}) {
+  return (
+    <div className="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-amber-700">
+          {eyebrow}
+        </p>
+        <h2 className="mt-2 text-3xl font-bold text-slate-900">{title}</h2>
+        {description && (
+          <p className="mt-2 text-sm leading-7 text-slate-600">{description}</p>
+        )}
+      </div>
+
+      {icon && (
+        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+          {icon}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export default async function TeacherAnalyticsPage() {
@@ -230,7 +334,10 @@ export default async function TeacherAnalyticsPage() {
 
   const notStartedStudents = studentStats
     .filter((item) => item.stats.totalLessons > 0 && item.stats.progress === 0)
-    .sort((a, b) => a.student.full_name?.localeCompare(b.student.full_name || '') || 0)
+    .sort(
+      (a, b) =>
+        a.student.full_name?.localeCompare(b.student.full_name || '') || 0
+    )
 
   const activeStudents = studentStats.filter(
     (item) => item.stats.progress > 0
@@ -258,72 +365,85 @@ export default async function TeacherAnalyticsPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-          Analytics
-        </p>
-
-        <h2 className="mt-2 text-3xl font-bold text-slate-900">
-          Teacher analytics
-        </h2>
-
-        <p className="mt-2 text-slate-600">
-          Track course completion, identify students who need support, and spot
-          missing lesson progress.
-        </p>
-      </div>
-
-      <div className="grid gap-6 md:grid-cols-4">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Overall completion</p>
-          <p className="mt-2 text-3xl font-bold">{overallProgress}%</p>
-          <div className="mt-4 h-3 overflow-hidden rounded-full bg-slate-200">
-            <div
-              className={`h-full rounded-full ${getProgressColor(overallProgress)}`}
-              style={{ width: `${overallProgress}%` }}
-            />
-          </div>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Students</p>
-          <p className="mt-2 text-3xl font-bold">{totalStudents}</p>
-          <p className="mt-2 text-sm text-slate-600">
-            {activeStudents} active students
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Courses</p>
-          <p className="mt-2 text-3xl font-bold">{totalCourses}</p>
-          <p className="mt-2 text-sm text-slate-600">
-            {totalPublishedCourses} published
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <p className="text-sm text-slate-500">Published lessons</p>
-          <p className="mt-2 text-3xl font-bold">{totalPublishedLessons}</p>
-          <p className="mt-2 text-sm text-slate-600">
-            {totalCompleted} completions
-          </p>
-        </div>
-      </div>
-
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-4">
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-6">
           <div>
-            <h3 className="text-2xl font-bold text-slate-900">
-              Students needing attention
-            </h3>
-            <p className="mt-2 text-slate-600">
-              Students below 40% completion across your published lessons.
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+              Analytics
+            </p>
+
+            <h2 className="mt-2 text-3xl font-bold md:text-4xl">
+              Teacher analytics
+            </h2>
+
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+              Track course completion, identify students who need support, and
+              spot missing lesson progress across your teaching space.
             </p>
           </div>
 
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-400 text-black">
+                <Sparkles className="h-5 w-5" />
+              </div>
+
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Premium analytics view
+                </p>
+                <p className="text-sm text-slate-300">
+                  Completion, support risk, and student visibility.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard
+          label="Overall completion"
+          value={`${overallProgress}%`}
+          icon={<BarChart3 className="h-5 w-5" />}
+          tone="gold"
+          note={`${totalCompleted}/${totalPossibleCompletions || 0} completions`}
+        />
+        <MetricCard
+          label="Students"
+          value={totalStudents}
+          icon={<UserRound className="h-5 w-5" />}
+          tone="slate"
+          note={`${activeStudents} active students`}
+        />
+        <MetricCard
+          label="Courses"
+          value={totalCourses}
+          icon={<BookOpen className="h-5 w-5" />}
+          tone="emerald"
+          note={`${totalPublishedCourses} published`}
+        />
+        <MetricCard
+          label="Published lessons"
+          value={totalPublishedLessons}
+          icon={<GraduationCap className="h-5 w-5" />}
+          tone="red"
+          note={`${totalCompleted} completions`}
+        />
+      </section>
+
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <SectionHeader
+          eyebrow="Support Priority"
+          title="Students needing attention"
+          description="Students below 40% completion across your published lessons."
+          icon={<ShieldAlert className="h-5 w-5" />}
+        />
+
+        <div className="mt-6 flex justify-end">
           <Link
             href="/teacher/students"
-            className="rounded-xl border border-slate-300 px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+            className="rounded-xl border border-slate-300 px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
           >
             View all students
           </Link>
@@ -338,7 +458,7 @@ export default async function TeacherAnalyticsPage() {
             {studentsNeedingAttention.slice(0, 8).map(({ student, stats }) => (
               <div
                 key={student.id}
-                className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4"
+                className="flex flex-wrap items-center justify-between gap-4 rounded-3xl border border-amber-200 bg-amber-50 p-4"
               >
                 <div className="flex items-center gap-3">
                   <UserAvatar
@@ -360,7 +480,9 @@ export default async function TeacherAnalyticsPage() {
 
                 <div className="w-full md:w-64">
                   <div className="flex justify-between text-sm text-slate-600">
-                    <span>{stats.completedCount}/{stats.totalLessons}</span>
+                    <span>
+                      {stats.completedCount}/{stats.totalLessons}
+                    </span>
                     <span>{stats.progress}%</span>
                   </div>
 
@@ -376,7 +498,7 @@ export default async function TeacherAnalyticsPage() {
 
                 <Link
                   href={`/teacher/students/${student.id}`}
-                  className="rounded-xl bg-blue-600 px-4 py-2 font-semibold text-white transition hover:bg-blue-700"
+                  className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-amber-300 transition hover:bg-black"
                 >
                   Help student
                 </Link>
@@ -387,13 +509,13 @@ export default async function TeacherAnalyticsPage() {
       </section>
 
       <section className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="text-2xl font-bold text-slate-900">
-            Course progress
-          </h3>
-          <p className="mt-2 text-slate-600">
-            Completion percentage across enrolled students.
-          </p>
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <SectionHeader
+            eyebrow="Course Progress"
+            title="Course progress"
+            description="Completion percentage across enrolled students."
+            icon={<ClipboardCheck className="h-5 w-5" />}
+          />
 
           {courseStats.length === 0 ? (
             <p className="mt-6 text-slate-700">No courses yet.</p>
@@ -402,12 +524,12 @@ export default async function TeacherAnalyticsPage() {
               {courseStats.map(({ course, stats }, index) => {
                 const accent =
                   index % 4 === 0
-                    ? 'bg-blue-500'
+                    ? 'bg-amber-400'
                     : index % 4 === 1
-                    ? 'bg-green-500'
+                    ? 'bg-emerald-500'
                     : index % 4 === 2
-                    ? 'bg-amber-500'
-                    : 'bg-purple-500'
+                    ? 'bg-yellow-500'
+                    : 'bg-slate-900'
 
                 return (
                   <div key={course.id}>
@@ -448,13 +570,13 @@ export default async function TeacherAnalyticsPage() {
           )}
         </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-          <h3 className="text-2xl font-bold text-slate-900">
-            Not started yet
-          </h3>
-          <p className="mt-2 text-slate-600">
-            Students enrolled but with 0 completed lessons.
-          </p>
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <SectionHeader
+            eyebrow="Zero Start"
+            title="Not started yet"
+            description="Students enrolled but with 0 completed lessons."
+            icon={<AlertTriangle className="h-5 w-5" />}
+          />
 
           {notStartedStudents.length === 0 ? (
             <p className="mt-6 text-slate-700">
@@ -465,7 +587,7 @@ export default async function TeacherAnalyticsPage() {
               {notStartedStudents.slice(0, 8).map(({ student, stats }) => (
                 <div
                   key={student.id}
-                  className="flex items-center justify-between gap-4 rounded-2xl border border-slate-200 p-4"
+                  className="flex items-center justify-between gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-4"
                 >
                   <div className="flex items-center gap-3">
                     <UserAvatar
@@ -487,7 +609,7 @@ export default async function TeacherAnalyticsPage() {
 
                   <Link
                     href={`/teacher/students/${student.id}`}
-                    className="text-sm font-semibold text-blue-600 hover:underline"
+                    className="rounded-xl border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                   >
                     View
                   </Link>
@@ -498,13 +620,13 @@ export default async function TeacherAnalyticsPage() {
         </div>
       </section>
 
-      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <h3 className="text-2xl font-bold text-slate-900">
-          Student progress overview
-        </h3>
-        <p className="mt-2 text-slate-600">
-          A quick view of every student enrolled in your courses.
-        </p>
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <SectionHeader
+          eyebrow="Student Progress"
+          title="Student progress overview"
+          description="A quick view of every student enrolled in your courses."
+          icon={<UserRound className="h-5 w-5" />}
+        />
 
         {studentStats.length === 0 ? (
           <p className="mt-6 text-slate-700">No student progress yet.</p>
@@ -579,11 +701,11 @@ export default async function TeacherAnalyticsPage() {
                         <span
                           className={`rounded-full px-3 py-1 text-xs font-semibold ${
                             stats.progress >= 75
-                              ? 'bg-green-100 text-green-700'
+                              ? 'bg-emerald-100 text-emerald-700'
                               : stats.progress >= 40
-                              ? 'bg-blue-100 text-blue-700'
+                              ? 'bg-amber-100 text-amber-900'
                               : stats.progress > 0
-                              ? 'bg-amber-100 text-amber-700'
+                              ? 'bg-yellow-100 text-yellow-900'
                               : 'bg-red-100 text-red-700'
                           }`}
                         >
@@ -594,7 +716,7 @@ export default async function TeacherAnalyticsPage() {
                       <td className="py-3 pr-4">
                         <Link
                           href={`/teacher/students/${student.id}`}
-                          className="rounded-xl border border-slate-300 px-3 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                          className="rounded-xl border border-slate-300 px-3 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                         >
                           View
                         </Link>

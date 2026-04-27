@@ -1,6 +1,20 @@
 import Link from 'next/link'
-import { notFound, redirect } from 'next/navigation'
+import { redirect } from 'next/navigation'
 import { revalidatePath } from 'next/cache'
+import {
+  Award,
+  CheckCircle2,
+  ClipboardCheck,
+  ExternalLink,
+  FileText,
+  FolderOpen,
+  Link2,
+  MessageSquareMore,
+  PencilLine,
+  ShieldCheck,
+  Sparkles,
+  XCircle,
+} from 'lucide-react'
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 import { createServiceRoleClient } from '@/lib/supabase/service-role'
 
@@ -61,6 +75,16 @@ type StudentSubmission = {
   updated_at: string
 }
 
+type RubricScore = {
+  id: string
+  submission_id: number
+  criterion_key: string
+  criterion_label: string
+  level: string | null
+  score: number | null
+  feedback: string | null
+}
+
 type SubmissionCard = {
   submission: StudentSubmission
   student: StudentProfile | null
@@ -68,6 +92,7 @@ type SubmissionCard = {
   lesson: Lesson | null
   course: Course | null
   signedFileUrl: string | null
+  rubricScores: RubricScore[]
 }
 
 function formatDate(value: string | null | undefined) {
@@ -91,15 +116,15 @@ function statusLabel(status: SubmissionStatus) {
 
 function statusClasses(status: SubmissionStatus) {
   if (status === 'accepted') {
-    return 'bg-green-100 text-green-700'
+    return 'bg-emerald-100 text-emerald-700'
   }
 
   if (status === 'reviewed') {
-    return 'bg-blue-100 text-blue-700'
+    return 'bg-amber-100 text-amber-900'
   }
 
   if (status === 'needs_revision') {
-    return 'bg-amber-100 text-amber-800'
+    return 'bg-yellow-100 text-yellow-900'
   }
 
   if (status === 'rejected') {
@@ -107,6 +132,56 @@ function statusClasses(status: SubmissionStatus) {
   }
 
   return 'bg-slate-100 text-slate-700'
+}
+
+const RUBRIC_CRITERIA = [
+  {
+    key: 'understanding',
+    label: 'Understanding',
+    description: 'Shows accurate understanding of the lesson concept.',
+  },
+  {
+    key: 'reasoning',
+    label: 'Reasoning',
+    description: 'Explains thinking, steps, choices, or problem-solving process.',
+  },
+  {
+    key: 'evidence',
+    label: 'Evidence',
+    description: 'Uses examples, working, sources, images, or proof to support the work.',
+  },
+  {
+    key: 'presentation',
+    label: 'Presentation',
+    description: 'Organizes the work clearly and communicates ideas effectively.',
+  },
+  {
+    key: 'reflection',
+    label: 'Reflection',
+    description: 'Shows learning awareness, improvements, or next steps.',
+  },
+] as const
+
+const RUBRIC_LEVELS = [
+  'Beginning',
+  'Developing',
+  'Secure',
+  'Excellent',
+] as const
+
+function getRubricScore(
+  scores: RubricScore[],
+  key: string
+): RubricScore | undefined {
+  return scores.find((score) => score.criterion_key === key)
+}
+
+function rubricLevelClasses(level: string | null | undefined) {
+  if (level === 'Excellent') return 'bg-emerald-100 text-emerald-700'
+  if (level === 'Secure') return 'bg-blue-100 text-blue-700'
+  if (level === 'Developing') return 'bg-amber-100 text-amber-900'
+  if (level === 'Beginning') return 'bg-slate-100 text-slate-700'
+  return 'bg-slate-100 text-slate-500'
 }
 
 async function createSubmissionReviewNotification(params: {
@@ -146,6 +221,39 @@ async function createSubmissionReviewNotification(params: {
   })
 }
 
+function StatCard({
+  label,
+  value,
+  tone = 'slate',
+}: {
+  label: string
+  value: number
+  tone?: 'slate' | 'amber' | 'yellow' | 'emerald' | 'red'
+}) {
+  const tones = {
+    slate: 'border-slate-200 bg-white text-slate-900',
+    amber: 'border-amber-200 bg-amber-50 text-amber-900',
+    yellow: 'border-yellow-200 bg-yellow-50 text-yellow-900',
+    emerald: 'border-emerald-200 bg-emerald-50 text-emerald-800',
+    red: 'border-red-200 bg-red-50 text-red-700',
+  } as const
+
+  const labelTones = {
+    slate: 'text-slate-500',
+    amber: 'text-amber-700',
+    yellow: 'text-yellow-700',
+    emerald: 'text-emerald-700',
+    red: 'text-red-700',
+  } as const
+
+  return (
+    <div className={`rounded-3xl border p-5 shadow-sm ${tones[tone]}`}>
+      <p className={`text-sm ${labelTones[tone]}`}>{label}</p>
+      <p className="mt-2 text-3xl font-bold">{value}</p>
+    </div>
+  )
+}
+
 export default async function TeacherSubmissionsPage() {
   const { supabase, user, profile } = await requireTeacherOrAdmin()
   const isAdmin = profile.role === 'admin'
@@ -175,6 +283,28 @@ export default async function TeacherSubmissionsPage() {
     const teacherScoreRaw = String(formData.get('teacher_score') || '').trim()
     const teacherFeedback = String(formData.get('teacher_feedback') || '').trim()
 
+    const rubricRows = RUBRIC_CRITERIA.map((criterion) => {
+      const level = String(
+        formData.get(`rubric_level_${criterion.key}`) || ''
+      ).trim()
+      const scoreRaw = String(
+        formData.get(`rubric_score_${criterion.key}`) || ''
+      ).trim()
+      const feedback = String(
+        formData.get(`rubric_feedback_${criterion.key}`) || ''
+      ).trim()
+
+      const score = scoreRaw === '' ? null : Number(scoreRaw)
+
+      return {
+        criterion_key: criterion.key,
+        criterion_label: criterion.label,
+        level: level || null,
+        score,
+        feedback: feedback || null,
+      }
+    })
+
     if (!submissionId || Number.isNaN(submissionId)) {
       redirect('/teacher/submissions')
     }
@@ -193,6 +323,14 @@ export default async function TeacherSubmissionsPage() {
       teacherScoreRaw === '' ? null : Number(teacherScoreRaw)
 
     if (teacherScore !== null && Number.isNaN(teacherScore)) {
+      redirect('/teacher/submissions')
+    }
+
+    const hasInvalidRubricScore = rubricRows.some(
+      (row) => row.score !== null && Number.isNaN(row.score)
+    )
+
+    if (hasInvalidRubricScore) {
       redirect('/teacher/submissions')
     }
 
@@ -247,6 +385,25 @@ export default async function TeacherSubmissionsPage() {
       })
       .eq('id', submissionId)
 
+    await supabase
+      .from('student_submission_rubric_scores')
+      .delete()
+      .eq('submission_id', submissionId)
+
+    const rubricRowsToInsert = rubricRows.filter(
+      (row) => row.level || row.score !== null || row.feedback
+    )
+
+    if (rubricRowsToInsert.length > 0) {
+      await supabase.from('student_submission_rubric_scores').insert(
+        rubricRowsToInsert.map((row) => ({
+          submission_id: submissionId,
+          ...row,
+          updated_at: new Date().toISOString(),
+        }))
+      )
+    }
+
     const hasMeaningfulChange =
       existingSubmission.status !== status ||
       (existingSubmission.teacher_feedback ?? '') !== (teacherFeedback || '') ||
@@ -272,28 +429,43 @@ export default async function TeacherSubmissionsPage() {
   if (courseIds.length === 0) {
     return (
       <div className="space-y-6">
-        <div>
-          <Link
-            href="/teacher"
-            className="text-sm font-medium text-blue-600 underline"
-          >
-            ← Back to teacher hub
-          </Link>
+        <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-6">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+                Submission Inbox
+              </p>
 
-          <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-            Submission Inbox
-          </p>
+              <h2 className="mt-2 text-3xl font-bold md:text-4xl">
+                Student evidence submissions
+              </h2>
 
-          <h2 className="mt-2 text-3xl font-bold text-slate-900">
-            Student evidence submissions
-          </h2>
+              <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+                Review student uploads and secure links from lesson submission
+                tasks in one premium review space.
+              </p>
+            </div>
 
-          <p className="mt-2 text-slate-600">
-            Review student uploads and secure links from lesson submission tasks.
-          </p>
-        </div>
+            <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-400 text-black">
+                  <Sparkles className="h-5 w-5" />
+                </div>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Premium submission inbox
+                  </p>
+                  <p className="text-sm text-slate-300">
+                    Review student evidence with speed and clarity.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <p className="text-slate-700">
             No teacher courses found yet, so there are no submissions to review.
           </p>
@@ -372,6 +544,28 @@ export default async function TeacherSubmissionsPage() {
 
   const signedFileMap = new Map<number, string | null>(signedFileEntries)
 
+  let rubricScores: RubricScore[] = []
+  const submissionIds = submissions.map((submission) => submission.id)
+
+  if (submissionIds.length > 0) {
+    const { data } = await supabase
+      .from('student_submission_rubric_scores')
+      .select(
+        'id, submission_id, criterion_key, criterion_label, level, score, feedback'
+      )
+      .in('submission_id', submissionIds)
+
+    rubricScores = (data ?? []) as RubricScore[]
+  }
+
+  const rubricMap = new Map<number, RubricScore[]>()
+
+  for (const score of rubricScores) {
+    const existing = rubricMap.get(score.submission_id) ?? []
+    existing.push(score)
+    rubricMap.set(score.submission_id, existing)
+  }
+
   const cards: SubmissionCard[] = submissions.map((submission) => ({
     submission,
     student: studentMap.get(submission.student_id) ?? null,
@@ -379,6 +573,7 @@ export default async function TeacherSubmissionsPage() {
     lesson: lessonMap.get(submission.lesson_id) ?? null,
     course: courseMap.get(submission.course_id) ?? null,
     signedFileUrl: signedFileMap.get(submission.id) ?? null,
+    rubricScores: rubricMap.get(submission.id) ?? [],
   }))
 
   const pendingCount = cards.filter(
@@ -399,58 +594,56 @@ export default async function TeacherSubmissionsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <Link
-          href="/teacher"
-          className="text-sm font-medium text-blue-600 underline"
-        >
-          ← Back to teacher hub
-        </Link>
+      <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-slate-950 text-white shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-4 px-6 py-6">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-300">
+              Submission Inbox
+            </p>
 
-        <p className="mt-6 text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-          Submission Inbox
-        </p>
+            <h2 className="mt-2 text-3xl font-bold md:text-4xl">
+              Student evidence submissions
+            </h2>
 
-        <h2 className="mt-2 text-3xl font-bold text-slate-900">
-          Student evidence submissions
-        </h2>
+            <p className="mt-3 max-w-3xl text-sm leading-7 text-slate-300">
+              Review student uploads and secure links from lesson submission
+              tasks in one premium review space.
+            </p>
+          </div>
 
-        <p className="mt-2 text-slate-600">
-          Review student uploads and secure links from lesson submission tasks.
-        </p>
-      </div>
+          <div className="rounded-3xl border border-white/10 bg-white/5 p-5">
+            <div className="flex items-center gap-3">
+              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-amber-400 text-black">
+                <Sparkles className="h-5 w-5" />
+              </div>
 
-      <div className="grid gap-4 md:grid-cols-5">
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Pending</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{pendingCount}</p>
+              <div>
+                <p className="text-sm font-semibold text-white">
+                  Premium submission inbox
+                </p>
+                <p className="text-sm text-slate-300">
+                  Review student evidence with speed and clarity.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
+      </section>
 
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Reviewed</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{reviewedCount}</p>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Needs revision</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">
-            {needsRevisionCount}
-          </p>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Accepted</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{acceptedCount}</p>
-        </div>
-
-        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-          <p className="text-sm text-slate-500">Rejected</p>
-          <p className="mt-2 text-3xl font-bold text-slate-900">{rejectedCount}</p>
-        </div>
-      </div>
+      <section className="grid gap-4 md:grid-cols-5">
+        <StatCard label="Pending" value={pendingCount} tone="amber" />
+        <StatCard label="Reviewed" value={reviewedCount} tone="slate" />
+        <StatCard
+          label="Needs revision"
+          value={needsRevisionCount}
+          tone="yellow"
+        />
+        <StatCard label="Accepted" value={acceptedCount} tone="emerald" />
+        <StatCard label="Rejected" value={rejectedCount} tone="red" />
+      </section>
 
       {cards.length === 0 ? (
-        <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <p className="text-slate-700">
             No student submissions yet. Once students upload files or send secure
             links, they will appear here.
@@ -471,10 +664,10 @@ export default async function TeacherSubmissionsPage() {
             return (
               <article
                 key={submission.id}
-                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+                className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm"
               >
                 <div className="flex flex-wrap items-start justify-between gap-4">
-                  <div>
+                  <div className="max-w-3xl">
                     <div className="flex flex-wrap gap-2">
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-semibold ${statusClasses(
@@ -491,13 +684,13 @@ export default async function TeacherSubmissionsPage() {
                       </span>
 
                       {card.task?.is_required_for_completion && (
-                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800">
+                        <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-900">
                           Required for completion
                         </span>
                       )}
 
                       {card.task?.is_required_for_certificate && (
-                        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+                        <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-900">
                           Required for certificate
                         </span>
                       )}
@@ -532,8 +725,9 @@ export default async function TeacherSubmissionsPage() {
                         href={card.signedFileUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white transition hover:bg-slate-800"
+                        className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 font-semibold text-amber-300 transition hover:bg-black"
                       >
+                        <FolderOpen className="h-4 w-4" />
                         Open file
                       </a>
                     )}
@@ -544,8 +738,9 @@ export default async function TeacherSubmissionsPage() {
                           href={submission.external_url}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded-xl bg-slate-900 px-4 py-2 font-semibold text-white transition hover:bg-slate-800"
+                          className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 font-semibold text-amber-300 transition hover:bg-black"
                         >
+                          <ExternalLink className="h-4 w-4" />
                           Open link
                         </a>
                       )}
@@ -553,8 +748,9 @@ export default async function TeacherSubmissionsPage() {
                     {lessonSlug && (
                       <Link
                         href={`/lessons/${lessonSlug}`}
-                        className="rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-blue-300 hover:text-blue-600"
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-white px-4 py-2 font-semibold text-slate-900 transition hover:border-amber-400 hover:text-amber-700"
                       >
+                        <FileText className="h-4 w-4" />
                         View lesson
                       </Link>
                     )}
@@ -562,8 +758,9 @@ export default async function TeacherSubmissionsPage() {
                     {card.lesson && (
                       <Link
                         href={`/teacher/lessons/${card.lesson.id}/submissions`}
-                        className="rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 font-semibold text-emerald-700 transition hover:bg-emerald-100"
+                        className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-2 font-semibold text-emerald-700 transition hover:bg-emerald-100"
                       >
+                        <ShieldCheck className="h-4 w-4" />
                         Task page
                       </Link>
                     )}
@@ -571,7 +768,7 @@ export default async function TeacherSubmissionsPage() {
                 </div>
 
                 {card.task?.instructions && (
-                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
                     <p className="text-sm font-semibold text-slate-900">
                       Task instructions
                     </p>
@@ -582,10 +779,13 @@ export default async function TeacherSubmissionsPage() {
                 )}
 
                 {submission.student_comment && (
-                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-sm font-semibold text-slate-900">
-                      Student comment
-                    </p>
+                  <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                    <div className="flex items-center gap-2">
+                      <MessageSquareMore className="h-4 w-4 text-amber-700" />
+                      <p className="text-sm font-semibold text-slate-900">
+                        Student comment
+                      </p>
+                    </div>
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
                       {submission.student_comment}
                     </p>
@@ -593,7 +793,7 @@ export default async function TeacherSubmissionsPage() {
                 )}
 
                 {submission.submission_type === 'file' && (
-                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+                  <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-4">
                     <p className="text-sm font-semibold text-slate-900">
                       File details
                     </p>
@@ -603,6 +803,53 @@ export default async function TeacherSubmissionsPage() {
                     <p className="mt-1 text-sm text-slate-700">
                       Type: {submission.file_mime_type || 'Unknown type'}
                     </p>
+                  </div>
+                )}
+
+                {card.rubricScores.length > 0 && (
+                  <div className="mt-5 rounded-3xl border border-blue-200 bg-blue-50 p-4">
+                    <div className="flex items-center gap-2">
+                      <ClipboardCheck className="h-4 w-4 text-blue-700" />
+                      <p className="text-sm font-semibold text-blue-900">
+                        Current rubric feedback
+                      </p>
+                    </div>
+
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      {card.rubricScores.map((score) => (
+                        <div
+                          key={score.id}
+                          className="rounded-2xl border border-blue-100 bg-white p-3"
+                        >
+                          <div className="flex flex-wrap items-center justify-between gap-2">
+                            <p className="font-semibold text-slate-900">
+                              {score.criterion_label}
+                            </p>
+                            {score.level && (
+                              <span
+                                className={`rounded-full px-2.5 py-1 text-xs font-semibold ${rubricLevelClasses(
+                                  score.level
+                                )}`}
+                              >
+                                {score.level}
+                              </span>
+                            )}
+                          </div>
+
+                          {typeof score.score === 'number' && (
+                            <p className="mt-2 text-sm text-slate-700">
+                              Score: {score.score}
+                            </p>
+                          )}
+
+                          {score.feedback && (
+                            <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">
+                              {score.feedback}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 )}
 
@@ -621,7 +868,7 @@ export default async function TeacherSubmissionsPage() {
                       <select
                         name="status"
                         defaultValue={submission.status}
-                        className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                        className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                       >
                         <option value="submitted">submitted</option>
                         <option value="reviewed">reviewed</option>
@@ -646,9 +893,105 @@ export default async function TeacherSubmissionsPage() {
                             ? ''
                             : String(submission.teacher_score)
                         }
-                        className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
+                        className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
                         placeholder="Optional score"
                       />
+                    </div>
+                  </div>
+
+                  <div className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-amber-300">
+                        <ClipboardCheck className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <p className="font-semibold text-slate-900">
+                          Rubric feedback
+                        </p>
+                        <p className="mt-1 text-sm leading-6 text-slate-600">
+                          Use IB/Cambridge-style criteria to show how the
+                          student is improving.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-5 space-y-4">
+                      {RUBRIC_CRITERIA.map((criterion) => {
+                        const existingScore = getRubricScore(
+                          card.rubricScores,
+                          criterion.key
+                        )
+
+                        return (
+                          <div
+                            key={criterion.key}
+                            className="rounded-2xl border border-slate-200 bg-white p-4"
+                          >
+                            <div className="mb-3">
+                              <p className="font-semibold text-slate-900">
+                                {criterion.label}
+                              </p>
+                              <p className="mt-1 text-xs leading-5 text-slate-500">
+                                {criterion.description}
+                              </p>
+                            </div>
+
+                            <div className="grid gap-3 md:grid-cols-[1fr_140px]">
+                              <div>
+                                <label className="mb-1 block text-xs font-medium text-slate-600">
+                                  Level
+                                </label>
+                                <select
+                                  name={`rubric_level_${criterion.key}`}
+                                  defaultValue={existingScore?.level ?? ''}
+                                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500"
+                                >
+                                  <option value="">No level</option>
+                                  {RUBRIC_LEVELS.map((level) => (
+                                    <option key={level} value={level}>
+                                      {level}
+                                    </option>
+                                  ))}
+                                </select>
+                              </div>
+
+                              <div>
+                                <label className="mb-1 block text-xs font-medium text-slate-600">
+                                  Score
+                                </label>
+                                <input
+                                  name={`rubric_score_${criterion.key}`}
+                                  type="number"
+                                  min="0"
+                                  max="100"
+                                  step="0.01"
+                                  defaultValue={
+                                    existingScore?.score === null ||
+                                    existingScore?.score === undefined
+                                      ? ''
+                                      : String(existingScore.score)
+                                  }
+                                  className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500"
+                                  placeholder="Optional"
+                                />
+                              </div>
+                            </div>
+
+                            <div className="mt-3">
+                              <label className="mb-1 block text-xs font-medium text-slate-600">
+                                Criterion feedback
+                              </label>
+                              <textarea
+                                name={`rubric_feedback_${criterion.key}`}
+                                rows={2}
+                                defaultValue={existingScore?.feedback ?? ''}
+                                className="w-full rounded-xl border border-slate-300 px-3 py-2 text-sm outline-none focus:border-amber-500"
+                                placeholder={`Feedback for ${criterion.label.toLowerCase()}...`}
+                              />
+                            </div>
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
 
@@ -660,18 +1003,41 @@ export default async function TeacherSubmissionsPage() {
                       name="teacher_feedback"
                       rows={5}
                       defaultValue={submission.teacher_feedback ?? ''}
-                      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-blue-500"
-                      placeholder="Write clear feedback for the student..."
+                      className="w-full rounded-xl border border-slate-300 px-4 py-3 outline-none focus:border-amber-500"
+                      placeholder="Write clear overall feedback for the student..."
                     />
                   </div>
 
                   <button
                     type="submit"
-                    className="rounded-xl bg-blue-600 px-5 py-3 font-semibold text-white transition hover:bg-blue-700"
+                    className="inline-flex items-center gap-2 rounded-xl bg-slate-900 px-5 py-3 font-semibold text-amber-300 transition hover:bg-black"
                   >
+                    <PencilLine className="h-4 w-4" />
                     Save review
                   </button>
                 </form>
+
+                {submission.status === 'accepted' && (
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700">
+                    <CheckCircle2 className="h-4 w-4" />
+                    Accepted work
+                  </div>
+                )}
+
+                {submission.status === 'rejected' && (
+                  <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700">
+                    <XCircle className="h-4 w-4" />
+                    Rejected work
+                  </div>
+                )}
+
+                {submission.submission_type === 'link' &&
+                  submission.external_url && (
+                    <div className="mt-4 inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-medium text-slate-600">
+                      <Link2 className="h-4 w-4" />
+                      External link provided
+                    </div>
+                  )}
               </article>
             )
           })}
