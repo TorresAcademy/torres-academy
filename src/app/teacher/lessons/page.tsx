@@ -15,8 +15,8 @@ import {
 import { requireTeacherOrAdmin } from '@/lib/teacher/require-teacher-or-admin'
 
 type Lesson = {
-  id: string
-  course_id: string
+  id: number
+  course_id: number
   title: string
   slug: string
   position: number
@@ -26,7 +26,7 @@ type Lesson = {
 }
 
 type Course = {
-  id: string
+  id: number
   title: string
 }
 
@@ -63,13 +63,10 @@ export default async function TeacherLessonsPage() {
         .eq('teacher_id', user.id)
         .order('title', { ascending: true })
 
-  const courses = ((coursesData ?? []) as Array<{
-    id: string | number
-    title: string
-  }>).map((course) => ({
-    ...course,
-    id: String(course.id),
-  })) as Course[]
+  const courses: Course[] = (coursesData ?? []).map((course) => ({
+    id: Number(course.id),
+    title: course.title,
+  }))
 
   const courseMap = new Map(courses.map((course) => [course.id, course.title]))
   const courseIds = courses.map((course) => course.id)
@@ -86,19 +83,15 @@ export default async function TeacherLessonsPage() {
       .order('course_id', { ascending: true })
       .order('position', { ascending: true })
 
-    lessons = ((lessonsData ?? []) as Array<{
-      id: string | number
-      course_id: string | number
-      title: string
-      slug: string
-      position: number
-      is_published: boolean | null
-      media_path?: string | null
-      media_type?: string | null
-    }>).map((lesson) => ({
-      ...lesson,
-      id: String(lesson.id),
-      course_id: String(lesson.course_id),
+    lessons = (lessonsData ?? []).map((lesson) => ({
+      id: Number(lesson.id),
+      course_id: Number(lesson.course_id),
+      title: lesson.title,
+      slug: lesson.slug,
+      position: lesson.position,
+      is_published: lesson.is_published,
+      media_path: lesson.media_path,
+      media_type: lesson.media_type,
     }))
   }
 

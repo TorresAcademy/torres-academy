@@ -22,17 +22,34 @@ type TeacherEditLessonPageProps = {
 }
 
 type Course = {
-  id: string
+  id: number
   title: string
   slug: string
 }
 
 type Module = {
-  id: string
-  course_id: string
+  id: number
+  course_id: number
   title: string
   position: number
   is_published: boolean
+}
+
+type LessonRecord = {
+  id: number
+  course_id: number
+  module_id: number | null
+  title: string
+  slug: string
+  content: string | null
+  video_url: string | null
+  position: number | null
+  is_published: boolean | null
+  teacher_explanation: string | null
+  encouragement_title: string | null
+  encouragement_text: string | null
+  media_path: string | null
+  media_type: string | null
 }
 
 function slugify(value: string) {
@@ -42,10 +59,6 @@ function slugify(value: string) {
     .replace(/[^a-z0-9\s-]/g, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
-}
-
-function sameId(a: unknown, b: unknown) {
-  return String(a ?? '') === String(b ?? '')
 }
 
 function SectionCard({
@@ -120,16 +133,16 @@ export default async function TeacherEditLessonPage({
   params,
 }: TeacherEditLessonPageProps) {
   const { id } = await params
-  const lessonId = String(id || '').trim()
+  const lessonId = Number(id)
 
-  if (!lessonId) {
+  if (!lessonId || Number.isNaN(lessonId)) {
     notFound()
   }
 
   const { supabase, user, profile } = await requireTeacherOrAdmin()
   const isAdmin = profile.role === 'admin'
 
-  const { data: lesson } = await supabase
+  const { data: lessonData } = await supabase
     .from('lessons')
     .select(
       'id, course_id, module_id, title, slug, content, video_url, position, is_published, teacher_explanation, encouragement_title, encouragement_text, media_path, media_type'
@@ -137,8 +150,28 @@ export default async function TeacherEditLessonPage({
     .eq('id', lessonId)
     .maybeSingle()
 
-  if (!lesson) {
+  if (!lessonData) {
     notFound()
+  }
+
+  const lesson: LessonRecord = {
+    id: Number(lessonData.id),
+    course_id: Number(lessonData.course_id),
+    module_id:
+      lessonData.module_id === null || lessonData.module_id === undefined
+        ? null
+        : Number(lessonData.module_id),
+    title: lessonData.title,
+    slug: lessonData.slug,
+    content: lessonData.content,
+    video_url: lessonData.video_url,
+    position: lessonData.position,
+    is_published: lessonData.is_published,
+    teacher_explanation: lessonData.teacher_explanation,
+    encouragement_title: lessonData.encouragement_title,
+    encouragement_text: lessonData.encouragement_text,
+    media_path: lessonData.media_path,
+    media_type: lessonData.media_type,
   }
 
   const { data: lessonCourse } = await supabase
@@ -166,14 +199,11 @@ export default async function TeacherEditLessonPage({
         .eq('teacher_id', user.id)
         .order('title', { ascending: true })
 
-  const courses = ((coursesData ?? []) as Array<{
-    id: string | number
-    title: string
-    slug: string
-  }>).map((course) => ({
-    ...course,
-    id: String(course.id),
-  })) as Course[]
+  const courses: Course[] = (coursesData ?? []).map((course) => ({
+    id: Number(course.id),
+    title: course.title,
+    slug: course.slug,
+  }))
 
   const courseIds = courses.map((course) => course.id)
 
@@ -187,17 +217,13 @@ export default async function TeacherEditLessonPage({
       .order('course_id', { ascending: true })
       .order('position', { ascending: true })
 
-    modules = ((modulesData ?? []) as Array<{
-      id: string | number
-      course_id: string | number
-      title: string
-      position: number
-      is_published: boolean
-    }>).map((module) => ({
-      ...module,
-      id: String(module.id),
-      course_id: String(module.course_id),
-    })) as Module[]
+    modules = (modulesData ?? []).map((module) => ({
+      id: Number(module.id),
+      course_id: Number(module.course_id),
+      title: module.title,
+      position: module.position,
+      is_published: module.is_published,
+    }))
   }
 
   async function updateLesson(formData: FormData) {
@@ -206,9 +232,9 @@ export default async function TeacherEditLessonPage({
     const { supabase, user, profile } = await requireTeacherOrAdmin()
     const isAdmin = profile.role === 'admin'
 
-    const courseId = String(formData.get('course_id') || '').trim()
+    const courseId = Number(formData.get('course_id'))
     const moduleIdRaw = String(formData.get('module_id') || '').trim()
-    const moduleId = moduleIdRaw || null
+    const moduleId = moduleIdRaw ? Number(moduleIdRaw) : null
 
     const title = String(formData.get('title') || '').trim()
     const slugValue = String(formData.get('slug') || '').trim()
@@ -226,7 +252,11 @@ export default async function TeacherEditLessonPage({
       formData.get('encouragement_text') || ''
     ).trim()
 
-    if (!courseId || !title) {
+    if (!courseId || Number.isNaN(courseId) || !title) {
+      redirect(`/teacher/lessons/${lessonId}/edit`)
+    }
+
+    if (moduleId !== null && Number.isNaN(moduleId)) {
       redirect(`/teacher/lessons/${lessonId}/edit`)
     }
 
@@ -267,7 +297,7 @@ export default async function TeacherEditLessonPage({
         .eq('id', moduleId)
         .maybeSingle()
 
-      if (!targetModule || !sameId(targetModule.course_id, courseId)) {
+      if (!targetModule || Number(targetModule.course_id) !== courseId) {
         redirect(`/teacher/lessons/${lessonId}/edit`)
       }
     }
@@ -313,9 +343,7 @@ export default async function TeacherEditLessonPage({
     redirect(`/teacher/lessons/${lessonId}/edit`)
   }
 
-  const assignedModule = modules.find((module) =>
-    sameId(module.id, lesson.module_id)
-  )
+  const assignedModule = modules.find((module) => module.id === lesson.module_id)
 
   return (
     <div className="space-y-6">
@@ -375,8 +403,8 @@ export default async function TeacherEditLessonPage({
               <CourseModuleSelect
                 courses={courses}
                 modules={modules}
-                defaultCourseId={String(lesson.course_id)}
-                defaultModuleId={lesson.module_id ? String(lesson.module_id) : null}
+                defaultCourseId={lesson.course_id}
+                defaultModuleId={lesson.module_id}
               />
 
               <div>

@@ -49,7 +49,10 @@ function cleanSearch(value: string) {
   return value.trim().replaceAll(',', ' ').slice(0, 120)
 }
 
-function redirectWithMessage(type: 'message' | 'error', value: string) {
+function redirectWithMessage(
+  type: 'message' | 'error',
+  value: string
+): never {
   redirect(`/admin/guardians?${type}=${encodeURIComponent(value)}`)
 }
 
