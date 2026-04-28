@@ -1203,7 +1203,7 @@ export default async function DashboardPage({
         <div className="mx-auto grid max-w-7xl gap-8 px-6 py-12 lg:grid-cols-[1fr_430px] lg:items-center">
           <div>
             <p className="text-sm font-semibold uppercase tracking-[0.22em] text-amber-300">
-              Torres Academy
+              Flex Scholar
             </p>
 
             <h2 className="mt-4 max-w-3xl text-4xl font-bold tracking-tight md:text-5xl">

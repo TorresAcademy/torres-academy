@@ -12,7 +12,7 @@ export default function HeroIllustration() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-blue-100">
-                Torres Academy
+                Flex Scholar
               </p>
               <h3 className="mt-2 text-2xl font-bold">Student Learning Hub</h3>
             </div>

@@ -9,7 +9,7 @@ export default function AboutPage() {
       <section className="bg-white">
         <div className="mx-auto max-w-5xl px-6 py-16">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-            About Torres Academy
+            About Flex Scholar
           </p>
 
           <h1 className="mt-3 text-4xl font-bold tracking-tight text-slate-900 md:text-5xl">
@@ -17,7 +17,7 @@ export default function AboutPage() {
           </h1>
 
           <p className="mt-6 max-w-3xl text-lg leading-8 text-slate-600">
-            Torres Academy is designed to help students learn through short,
+            Flex Scholar is designed to help students learn through short,
             clear lessons, guided support, and a personal dashboard where they can
             track their progress.
           </p>

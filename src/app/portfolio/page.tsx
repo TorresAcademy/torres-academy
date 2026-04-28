@@ -804,7 +804,7 @@ export default async function StudentPortfolioPage() {
           <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-center">
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.22em] text-amber-300">
-                Torres Academy Portfolio
+                Flex Scholar Portfolio
               </p>
 
               <h1 className="mt-4 max-w-4xl text-4xl font-bold tracking-tight md:text-5xl">

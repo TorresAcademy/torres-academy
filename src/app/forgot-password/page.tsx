@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
       <div className="mx-auto max-w-md rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
         <div className="mb-6">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-blue-700">
-            Torres Academy
+            Flex Scholar
           </p>
           <h1 className="mt-2 text-3xl font-bold text-slate-900">
             Forgot password

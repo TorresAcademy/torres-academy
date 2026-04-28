@@ -28,7 +28,7 @@ export default function ContactPage() {
         <div className="mx-auto grid max-w-6xl gap-8 px-6 py-14 md:grid-cols-[0.9fr_1.1fr]">
           <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-sm">
             <h2 className="text-2xl font-bold text-slate-900">
-              Contact Torres Academy
+              Contact Flex Scholar
             </h2>
 
             <p className="mt-4 leading-7 text-slate-600">

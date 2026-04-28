@@ -53,8 +53,8 @@ export default async function AdminLayout({
             </p>
 
             <h1 className="mt-1 text-2xl font-bold tracking-tight">
-              <span className="text-white">Torres </span>
-              <span className="text-amber-400">Academy</span>
+              <span className="text-white">Flex </span>
+              <span className="text-amber-400">Scholar</span>
             </h1>
           </div>
 
@@ -122,6 +122,12 @@ export default async function AdminLayout({
             <NavLink
               href="/admin/users"
               label="Users"
+              icon={<Users className="h-4 w-4" />}
+            />
+
+            <NavLink
+              href="/admin/guardians"
+              label="Guardians"
               icon={<Users className="h-4 w-4" />}
             />
 

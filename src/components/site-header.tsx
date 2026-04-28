@@ -5,7 +5,7 @@ export default function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/90 backdrop-blur">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
         <Link href="/" className="text-xl font-bold text-slate-900">
-          Torres <span className="text-blue-600">Academy</span>
+          Flex <span className="text-blue-600">Scholar</span>
         </Link>
 
         <nav className="hidden items-center gap-6 text-sm font-medium text-slate-700 md:flex">
@@ -20,6 +20,15 @@ export default function SiteHeader() {
           </Link>
           <Link href="/services" className="hover:text-blue-600">
             Services
+          </Link>
+          <Link href="/teachers" className="hover:text-blue-600">
+            Teachers
+          </Link>
+          <Link href="/community" className="hover:text-blue-600">
+            Community
+          </Link>
+          <Link href="/resources" className="hover:text-blue-600">
+            Resources
           </Link>
           <Link href="/contact" className="hover:text-blue-600">
             Contact

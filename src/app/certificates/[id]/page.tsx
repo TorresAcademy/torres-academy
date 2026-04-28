@@ -79,7 +79,7 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
         <section className="rounded-[2rem] border border-slate-200 bg-white p-10 text-center shadow-sm print:border-0 print:shadow-none">
           <div className="mx-auto max-w-3xl">
             <p className="text-sm font-semibold uppercase tracking-[0.24em] text-blue-700">
-              Torres Academy
+              Flex Scholar
             </p>
 
             <h1 className="mt-6 text-5xl font-bold tracking-tight text-slate-900">
@@ -137,7 +137,7 @@ export default async function CertificatePage({ params }: CertificatePageProps) 
             <div className="mt-12">
               <p className="text-sm text-slate-500">Authorized by</p>
               <p className="mt-2 text-2xl font-bold text-slate-900">
-                Torres Academy
+                Flex Scholar
               </p>
             </div>
           </div>
