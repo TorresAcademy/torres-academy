@@ -236,8 +236,16 @@ function LoginPageInner() {
     <main className="min-h-screen bg-[radial-gradient(circle_at_top_left,_#dbeafe_0,_#f8fafc_35%,_#f8fafc_100%)] text-slate-900">
       <div className="mx-auto grid min-h-screen max-w-7xl items-center gap-10 px-6 py-10 lg:grid-cols-[1.05fr_470px]">
         <section>
-          <Link href="/" className="text-2xl font-extrabold tracking-tight text-slate-900">
-            Flex <span className="text-blue-600">Scholar</span>
+          <Link href="/" className="block">
+            <span className="text-2xl font-extrabold tracking-tight text-slate-900">
+              Flex <span className="text-blue-600">Scholar</span>
+            </span>
+            <span className="mt-1 block text-sm font-bold text-slate-500">
+              by Torres Academy
+            </span>
+            <span className="mt-2 block text-sm leading-6 text-slate-600">
+              Expert-guided learning. Human feedback. Real academic growth.
+            </span>
           </Link>
 
           <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-blue-100 bg-white px-4 py-2 text-sm font-bold text-blue-700 shadow-sm">

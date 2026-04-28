@@ -209,7 +209,7 @@ export default function HomePage() {
             </h1>
 
             <p className="mt-7 max-w-3xl text-lg leading-8 text-slate-200 md:text-xl">
-              Flex Scholar is not just another online course platform. It is a
+              Flex Scholar, by Torres Academy, is not just another online course platform. It is a
               human-centred academic academy where students learn on demand,
               submit real evidence, receive qualitative feedback, and build a
               portfolio that shows genuine progress.
@@ -670,10 +670,11 @@ export default function HomePage() {
             <h3 className="text-3xl font-black">
               Flex <span className="text-blue-600">Scholar</span>
             </h3>
+            <p className="mt-1 text-sm font-bold text-slate-500">
+              by Torres Academy
+            </p>
             <p className="mt-4 max-w-xl leading-7 text-slate-600">
-              Expert-guided online learning combining IB thinking, Cambridge
-              rigour, and professional insight with portfolio evidence and human
-              teacher feedback. By Torres Academy.
+              Expert-guided learning. Human feedback. Real academic growth.
             </p>
           </div>
 
